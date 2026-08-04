@@ -2,495 +2,343 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>象棋麻將遊戲（完整功能版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>象棋麻將爭霸</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f7f4ef;
-            height: 100vh;
+        :root {
+            --bg-color: #f7f4ef; --card-bg: #fffaf5; --card-border: #e6d7cc;
+            --text-main: #6b5b53; --text-light: #9e8a80; --button-bg: #d4a373;
+            --button-hover: #faedcd; --button-text: #584032; --accent-active: #e07a5f;
+            --morandi-ruby: rgba(195, 110, 130, 0.92); --morandi-yellow: rgba(244, 211, 94, 0.85);
+            --morandi-green: rgba(144, 190, 109, 0.85); --morandi-blue: rgba(144, 224, 239, 0.85);
+            --muted-red: #C36E82; 
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Zen Maru Gothic", "Microsoft JhengHei", sans-serif; color: var(--text-main); -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; position: fixed; width: 100%; height: 100%; font-size: 18px; }
+        
+        #app { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; position: relative; }
+        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; background-color: var(--bg-color); padding: 15px; overflow-y: auto; }
+        .screen.active { display: flex; }
 
-        #game-header {
-            background-color: #fff;
-            width: 100%;
-            padding: 10px 0;
-            border-bottom: 2px solid #e07a5f;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
+        #lobby-screen { background: linear-gradient(rgba(110, 100, 90, 0.825), rgba(110, 100, 90, 0.825)), url('lobby-bg.png'); background-size: cover; background-position: center 5%; justify-content: center; padding-top: 0;}
+        .lobby-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 450px; z-index: 2; }
+        input, button { padding: 14px 22px; font-size: 18px; border-radius: 16px; border: 2px solid var(--card-border); margin: 6px; max-width: 100%; outline: none; z-index: 2; font-weight: normal; }
+        #player-name-input { background: #ffffff; color: var(--text-main); text-align: center; width: 100%; max-width: 280px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); font-size: 22px; }
+        button { background-color: var(--button-bg); color: #fff; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(212, 163, 115, 0.3); }
+        button:hover { background-color: var(--accent-active); transform: translateY(-2px); }
+        button:disabled { background: #e0d5cb; cursor: not-allowed; transform: none; box-shadow: none; opacity: 0.6; }
+        
+        .room-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; margin-top: 15px; }
+        .room-card { padding: 22px 12px; border-radius: 20px; text-align: center; cursor: pointer; color: #4a403a; box-shadow: 0 6px 15px rgba(0,0,0,0.05); font-size: 22px; border: 2px solid #fff; transition: all 0.2s; }
+        .room-card.room-ruby { background: var(--morandi-ruby); } .room-card.room-yellow { background: var(--morandi-yellow); }
+        .room-card.room-green { background: var(--morandi-green); } .room-card.room-blue { background: var(--morandi-blue); }
+        
+        #game-screen { background-color: var(--bg-color); }
+        .game-header { width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: clamp(15px, 4vw, 18px); padding: 12px 18px; background: #fffaf5; border-bottom: 2px solid var(--card-border); border-radius: 0 0 16px 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 5px; }
+        .players-bar { display: flex; gap: 8px; width: 100%; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+        .player-info-card { background: #fffaf5; padding: 8px 14px; border-radius: 12px; font-size: clamp(14px, 3.5vw, 16px); border: 2px solid var(--card-border); white-space: nowrap; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px;}
+        .player-info-card.active-turn { border-color: var(--accent-active); background: #fff0ec; color: var(--accent-active); }
+        .p-score { color: var(--muted-red); font-size: 1.2em; font-weight: bold; }
+        .player-info-card.active-turn .p-score { color: var(--accent-active); }
 
-        #game-round {
-            font-size: 1.2em;
-            color: #3d405b;
-        }
-
-        #tile-count {
-            color: #e07a5f;
-            font-weight: bold;
-        }
-
-        #player-infos {
-            display: flex;
-            gap: 15px;
-        }
-
-        .player-info {
-            padding: 8px 15px;
-            background-color: #fffdf5;
-            border: 1px solid #e6d7cc;
-            border-radius: 8px;
-            font-size: 0.9em;
-            text-align: center;
-            transition: all 0.3s;
-        }
-
-        .player-info.active {
-            background-color: #fff0ec;
-            border-color: #e07a5f;
-            box-shadow: 0 0 10px rgba(224, 122, 95, 0.2);
-        }
-
-        .player-name {
-            display: block;
-            margin-bottom: 2px;
-            color: #6b5b53;
-        }
-
-        /* 玩家分數在新的一行，呈現莫蘭迪淡紅 */
-        .player-score {
-            display: block;
-            color: rgba(195, 110, 130, 0.92); /* 莫蘭迪淡紅 */
-            font-weight: bold;
-        }
-
-        #turn-info {
-            position: absolute;
-            top: 60px;
-            right: 20px;
-            color: rgba(224, 122, 95, 0.85); /* 莫蘭迪紅 */
-            font-size: 1.1em;
-        }
-
-        #game-board {
-            flex-grow: 1;
-            width: 100%;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #current-tile {
-            position: absolute;
-            top: 35%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #bottom-panel {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px 0;
-            background-color: transparent;
-            gap: 20px;
-        }
-
-        #hand {
-            display: flex;
-            gap: 10px;
-            margin-left: 20px;
-        }
-
-        .piece {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            background-color: #fff;
-            border: 2px solid #a89a90;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2em;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            user-select: none;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            background-size: contain;
-            color: #584032;
-        }
-
-        #current-tile .piece {
-            width: 80px;
-            height: 80px;
-            font-size: 2.2em;
-        }
-
-        .piece.large {
-            cursor: pointer;
-        }
-
-        .piece.large:hover {
-            transform: scale(1.1);
-            border-color: #faedcd;
-            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
-        }
-
-        #action-buttons {
-            display: flex;
-            gap: 10px;
-        }
-
-        button {
-            padding: 12px 24px;
-            font-size: 1.1em;
-            border-radius: 12px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            font-weight: 500;
-        }
-
-        /* 普通按鈕使用莫蘭迪黃 */
-        .btn-normal {
-            background-color: rgba(244, 211, 94, 0.85); /* 莫蘭迪黃 */
-            color: #584032;
-        }
-
-        .btn-normal:hover {
-            background-color: #faedcd;
-            transform: translateY(-2px);
-        }
-
-        /* 胡牌按鈕使用莫蘭迪紅 */
-        .btn-win {
-            background-color: rgba(224, 122, 95, 0.85); /* 莫蘭迪紅 */
-            color: #fff;
-            display: none;
-        }
-
-        .btn-win:hover {
-            background-color: #e07a5f;
-            transform: translateY(-2px);
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        button:disabled {
-            background-color: #e0d5cb;
-            color: #a89a90;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        #timer {
-            font-size: 1.1em;
-            color: rgba(144, 190, 109, 0.85); /* 莫蘭迪綠 */
-            margin-left: 10px;
-        }
-
-        /* === 特效部分 === */
-
-        /* 胡牌特效遮罩 */
-        #win-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: none; /* 初始隱藏 */
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.5s;
-        }
-
-        #win-overlay.show {
-            display: flex;
-            opacity: 1;
-        }
-
-        /* 胡牌特效內容 */
-        #win-content {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(224, 122, 95, 0.5);
-        }
-
-        /* stylized 胡 char */
-        #win-title {
-            font-size: 8em;
-            color: #e07a5f;
-            margin: 0;
-            animation: winCharPulse 2s infinite, winCharZoom 0.5s ease-out;
-            display: inline-block;
-        }
-
-        #win-message {
-            font-size: 1.5em;
-            color: #3d405b;
-            margin-bottom: 20px;
-        }
-
-        #next-round-btn {
-            background-color: rgba(144, 224, 239, 0.85); /* 莫蘭迪藍 */
-            color: #584032;
-        }
-
-        #next-round-btn:hover {
-            background-color: #ade8f4;
-            transform: translateY(-2px);
-        }
-
-        @keyframes winCharPulse {
-            0% { text-shadow: 0 0 10px rgba(224, 122, 95, 0.8); }
-            50% { text-shadow: 0 0 20px rgba(224, 122, 95, 0.3); }
-            100% { text-shadow: 0 0 10px rgba(224, 122, 95, 0.8); }
-        }
-
-        @keyframes winCharZoom {
-            0% { transform: scale(0); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
+        .center-pool { flex: 1; width: 100%; max-width: 700px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px; position: relative; }
+        .discarded-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; justify-items: center; width: 100%; max-width: 400px; }
+        
+        .tile { width: clamp(55px, 15vw, 75px); height: clamp(55px, 15vw, 75px); border-radius: 50%; background-color: transparent; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; background-size: cover; background-position: center; background-repeat: no-repeat; box-shadow: 0 6px 12px rgba(0,0,0,0.15); font-size: 26px; border: none; outline: none; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .tile:active { transform: scale(0.95); }
+        .tile.highlight { box-shadow: 0 10px 20px rgba(0,0,0,0.3); transform: scale(1.4); z-index: 5; }
+        .tile.large { width: clamp(75px, 18vw, 95px); height: clamp(75px, 18vw, 95px); font-size: clamp(26px, 7vw, 38px); }
+        
+        .action-panel { display: flex; gap: 10px; margin: 8px 0; align-items: center; justify-content: center; width: 100%; flex-wrap: wrap; }
+        .action-panel button { padding: 12px 20px; font-size: clamp(16px, 4vw, 18px); border-radius: 14px; font-weight: normal; }
+        .timer-display { font-size: clamp(18px, 4.5vw, 22px); color: var(--accent-active); font-weight: bold; }
+        
+        .player-section { width: 100%; padding: 16px; display: flex; justify-content: center; min-height: 100px;}
+        .my-tiles { display: flex; gap: 12px; align-items: center; justify-content: center; }
+        
+        #winner-display-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(247, 244, 239, 0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; border-radius: 20px;}
+        #winner-display-overlay.active { display: flex; }
+        #ready-screen, #gameover-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(247, 244, 239, 0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; padding: 20px; text-align: center; }
+        #ready-screen.active, #gameover-screen.active { display: flex; }
+        
+        .ranking-table { width: 100%; max-width: 400px; border-collapse: collapse; margin: 15px 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .ranking-table th, .ranking-table td { padding: 12px 8px; border-bottom: 1px solid var(--card-border); text-align: center; font-size: 15px; }
+        .ranking-table th { background: #fdfaf6; color: var(--accent-active); }
+        
+        #message-modal { position: fixed; top: 20px; background-color: #fffaf5; color: var(--accent-active); border: 2px solid var(--card-border); padding: 14px 24px; border-radius: 16px; font-size: 18px; display: none; z-index: 100; left: 50%; transform: translateX(-50%); }
     </style>
 </head>
 <body>
-
-    <div id="game-header">
-        <div id="game-round">第 1 局</div>
-        <div id="player-infos">
-            <div id="player1-info" class="player-info">
-                <span class="player-name">阿蛇</span>
-                <span id="player1-score" class="player-score">0</span>
-            </div>
-            <div id="player2-info" class="player-info">
-                <span class="player-name">酷哥</span>
-                <span id="player2-score" class="player-score">0</span>
-            </div>
-            <div id="player3-info" class="player-info">
-                <span class="player-name">廢物</span>
-                <span id="player3-score" class="player-score">0</span>
-            </div>
-        </div>
-        <div id="tile-count-info">剩餘牌數：<span id="tile-count">32</span></div>
-    </div>
-
-    <div id="turn-info">您的回合：請摸牌</div>
-
-    <div id="game-board">
-        <div id="current-tile">
-            <!-- 剛摸的牌會在這裡 -->
+<div id="app">
+    <div id="message-modal">提示訊息</div>
+    
+    <div id="lobby-screen" class="screen active">
+        <div class="lobby-content-wrapper">
+            <input type="text" id="player-name-input" placeholder="請輸入暱稱">
+            <div class="room-list" id="room-list-container"></div>
         </div>
     </div>
 
-    <div id="bottom-panel">
-        <div id="hand">
-            <!-- 玩家的手牌 -->
-            <div class="piece large">帥</div>
-            <div class="piece large">仕</div>
-            <div class="piece large">相</div>
-            <div class="piece large">俥</div>
+    <div id="game-screen" class="screen">
+        <div id="ready-screen">
+            <h2 style="color: var(--accent-active); font-size: 28px;">休息小棧</h2>
+            <p style="margin: 15px 0; color: var(--text-light);">2~4 人皆可開始，等待眾人就位！</p>
+            <button id="btn-ready" onclick="clickReady()" style="padding: 16px 40px; font-size: 20px;">準備出發</button>
+            <button onclick="leaveRoom()" style="background: #e6d7cc; color: var(--text-main); margin-top: 15px;">返回大廳</button>
         </div>
+
+        <div id="gameover-screen">
+            <h2 style="color: var(--accent-active); font-size: 26px;">10局圓滿落幕 - 英雄榜</h2>
+            <table class="ranking-table" id="ranking-table"></table>
+            <button onclick="leaveRoom()">返回大廳</button>
+        </div>
+
+        <div class="game-header">
+            <span id="room-name-display" style="color: var(--accent-active);">房間</span>
+            <span id="round-display">第 1 / 10 局</span>
+            <span id="turn-status-text" style="color: var(--accent-active);">等待中</span>
+            <button style="padding: 6px 14px; font-size: 15px; background: #e6d7cc; color: var(--text-main);" onclick="leaveRoom()">退出</button>
+        </div>
+
+        <div class="players-bar" id="players-bar-container"></div>
+
+        <div class="center-pool">
+            <div id="winner-display-overlay">
+                <h2 id="winner-title" style="color: var(--accent-active); font-size: 28px; margin-bottom: 10px;"></h2>
+                <p id="winner-desc" style="font-size: 18px; color: var(--text-main); margin-bottom: 15px;"></p>
+                <div class="my-tiles" id="winning-tiles-container"></div>
+                <div style="margin-top:20px; font-size: 16px; color: var(--text-light);">自動倒數 <span id="next-timer">5</span>s 進入下一把</div>
+                <button id="btn-next-round" onclick="clickNextRound()" style="margin-top: 15px;">下一把</button>
+            </div>
+            <div class="discarded-tiles" id="discarded-pool"></div>
+        </div>
+
+        <div class="action-panel">
+            <button id="btn-draw" onclick="playerAction('draw')" disabled>摸牌</button>
+            <button id="btn-eat" onclick="playerAction('eat')" disabled>吃牌</button>
+            <button id="btn-win" onclick="playerAction('win')" style="background-color: var(--accent-active); border: 2px solid #ffccd5; display: none;">胡牌！</button>
+            <div class="timer-display">剩餘：<br><span id="timer-text" style="font-size: 28px;">8</span></div>
+        </div>
+
+        <div class="player-section">
+            <div class="my-tiles" id="my-hand-tiles"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const socket = io();
+    let gs = { id: '', pId: '', p: [], hand: [], pool: [], tIdx: 0, phase: '', turnCard: false };
+
+    function getTileImg(name) {
+        const m = {
+            '帥':'red_shuai.png','仕':'red_shi.png','相':'red_xiang.png','俥':'red_che.png','傌':'red_ma.png','炮':'red_pao.png','兵':'red_bing.png',
+            '將':'black_jiang.png','士':'black_shi.png','象':'black_xiang.png','車':'black_che.png','馬':'black_ma.png','包':'black_pao.png','卒':'black_zu.png'
+        };
+        return m[name] || '';
+    }
+
+    function showMsg(text) {
+        const m = document.getElementById('message-modal');
+        m.innerText = text; m.style.display = 'block';
+        setTimeout(() => m.style.display = 'none', 2000);
+    }
+
+    function checkHuClient(hand, extraCard = null) {
+        let testHand = [...hand];
+        if (extraCard) testHand.push(extraCard);
+        if (testHand.length !== 5) return false;
         
-        <div id="action-buttons">
-            <button id="draw-btn" class="btn-normal">摸牌</button>
-            <button id="eat-btn" class="btn-normal" disabled>吃牌</button>
-            <button id="win-btn" class="btn-win">胡牌！</button>
-            <span id="timer">剩餘時間：10s</span>
-        </div>
-    </div>
+        let counts = {};
+        testHand.forEach(t => counts[t] = (counts[t] || 0) + 1);
 
-    <!-- === 胡牌特效遮罩 === -->
-    <div id="win-overlay">
-        <div id="win-content">
-            <h1 id="win-title">胡</h1>
-            <p id="win-message"></p>
-            <button id="next-round-btn" class="btn-normal">下一局</button>
-        </div>
-    </div>
+        const hasSubset = (subset) => {
+            let temp = { ...counts };
+            for (let t of subset) { if (!temp[t] || temp[t] <= 0) return false; temp[t]--; }
+            return true;
+        };
+        const checkPairInRemaining = (subset) => {
+            let temp = { ...counts };
+            for (let t of subset) temp[t]--;
+            let rem = [];
+            for (let t in temp) { for (let i = 0; i < temp[t]; i++) rem.push(t); }
+            return rem.length === 2 && rem[0] === rem[1];
+        };
 
-    <script>
-        // 遊戲狀態與計時器變數
-        let currentPlayerIndex = 0; // 0=阿蛇, 1=酷哥, 2=廢物
-        const players = ["阿蛇", "酷哥", "廢物"];
-        let timeLeft = 10;
-        let turnTimer;
+        if (counts['兵'] === 5 || counts['卒'] === 5) return true;
+        if (hasSubset(['帥', '將', '兵', '兵', '兵']) || hasSubset(['帥', '將', '卒', '卒', '卒'])) return true;
+        if (counts['兵'] >= 3) {
+            let temp = { ...counts }; temp['兵'] -= 3;
+            for (let t in temp) { if (temp[t] === 2 && t !== '帥' && t !== '將' && ['仕', '相', '俥', '傌', '炮'].includes(t)) return true; }
+        }
+        if (counts['卒'] >= 3) {
+            let temp = { ...counts }; temp['卒'] -= 3;
+            for (let t in temp) { if (temp[t] === 2 && t !== '帥' && t !== '將' && ['士', '象', '車', '馬', '包'].includes(t)) return true; }
+        }
+        if (hasSubset(['帥', '仕', '相']) && checkPairInRemaining(['帥', '仕', '相'])) return true;
+        if (hasSubset(['將', '士', '象']) && checkPairInRemaining(['將', '士', '象'])) return true;
+        if (hasSubset(['俥', '傌', '炮']) && checkPairInRemaining(['俥', '傌', '炮'])) return true;
+        if (hasSubset(['車', '馬', '包']) && checkPairInRemaining(['車', '馬', '包'])) return true;
 
-        // UI 元素
-        const turnInfoText = document.getElementById("turn-info");
-        const timerText = document.getElementById("timer");
-        const drawBtn = document.getElementById("draw-btn");
-        const eatBtn = document.getElementById("eat-btn");
-        const winBtn = document.getElementById("win-btn");
-        const currentTileDiv = document.getElementById("current-tile");
-        const handDiv = document.getElementById("hand");
-        
-        // 特效 UI 元素
-        const winOverlay = document.getElementById("win-overlay");
-        const winMessage = document.getElementById("win-message");
-        const nextRoundBtn = document.getElementById("next-round-btn");
+        return false;
+    }
 
-        // 開始計時器
-        function startTimer() {
-            clearInterval(turnTimer);
-            timeLeft = 10;
-            updateTimerDisplay();
-            
-            turnTimer = setInterval(() => {
-                timeLeft--;
-                if (timeLeft <= 0) {
-                    clearInterval(turnTimer);
-                    // 超時，強制打一張牌並換人 (實際邏輯需依遊戲而定)
-                    console.log(`${players[currentPlayerIndex]} 超時！自動打牌。`);
-                    changeTurn();
-                } else {
-                    updateTimerDisplay();
+    socket.on('room_list', rooms => {
+        const c = document.getElementById('room-list-container'); c.innerHTML = '';
+        Object.values(rooms).forEach(r => {
+            const d = document.createElement('div');
+            d.className = `room-card ${r.colorClass}`;
+            d.innerText = `${r.name}\n(${r.players.length}/4人)`;
+            d.onclick = () => {
+                const name = document.getElementById('player-name-input').value.trim();
+                if(!name) return showMsg('請輸入暱稱');
+                socket.emit('join_room', { roomId: r.id, playerName: name });
+                document.getElementById('room-name-display').innerText = r.name;
+                document.getElementById('lobby-screen').classList.remove('active');
+                document.getElementById('game-screen').classList.add('active');
+            };
+            c.appendChild(d);
+        });
+    });
+
+    function leaveRoom() { window.location.reload(); }
+    function clickReady() { socket.emit('player_ready'); document.getElementById('btn-ready').innerText = '已就緒...'; document.getElementById('btn-ready').disabled = true; }
+    function clickNextRound() { socket.emit('next_round_ready'); document.getElementById('btn-next-round').disabled = true; }
+    function playerAction(t) { socket.emit('player_action', { roomId: gs.id, actionType: t }); }
+    function selectTile(t) { socket.emit('player_action', { roomId: gs.id, actionType: 'discard', payload: { tile: t } }); }
+
+    socket.on('timer_update', sec => {
+        if(gs.phase === 'PLAYING') document.getElementById('timer-text').innerText = sec;
+        if(gs.phase === 'ROUND_OVER') document.getElementById('next-timer').innerText = sec;
+    });
+
+    socket.on('action_feedback', d => showMsg(d.message));
+
+    socket.on('room_state_update', st => {
+        gs.id = st.id; gs.pId = socket.id; gs.p = st.players; gs.phase = st.phase; 
+        gs.tIdx = st.currentTurnIndex; gs.turnCard = st.hasTakenCardThisTurn;
+        gs.hand = st.myHands[socket.id] || []; gs.pool = st.discardPool;
+
+        const rs = document.getElementById('ready-screen'), overlay = document.getElementById('winner-display-overlay');
+        rs.classList.remove('active'); overlay.classList.remove('active');
+        document.getElementById('round-display').innerText = `第 ${st.currentRound} / ${st.maxRounds} 局`;
+
+        if (st.phase === 'WAITING') {
+            rs.classList.add('active');
+            let me = gs.p.find(p => p.id === gs.pId);
+            if(me && !me.isReady) {
+                let b = document.getElementById('btn-ready');
+                b.innerText = '準備出發'; b.disabled = false;
+            }
+        } else if (st.phase === 'ROUND_OVER') {
+            overlay.classList.add('active');
+            document.getElementById('btn-next-round').disabled = false;
+            if(st.winningInfo) {
+                document.getElementById('winner-title').innerText = st.winningInfo.title || '流局';
+                document.getElementById('winner-desc').innerText = st.winningInfo.desc || '';
+                const wc = document.getElementById('winning-tiles-container'); wc.innerHTML = '';
+                if(st.winningInfo.winningHand) {
+                    st.winningInfo.winningHand.forEach(t => {
+                        let d = document.createElement('div'); d.className = 'tile large';
+                        let img = getTileImg(t);
+                        if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
+                        wc.appendChild(d);
+                    });
                 }
-            }, 1000);
-        }
-
-        // 更新時間顯示
-        function updateTimerDisplay() {
-            timerText.innerText = `剩餘時間：${timeLeft}s`;
-        }
-
-        // 摸牌動作
-        function handleDraw() {
-            if (players[currentPlayerIndex] !== "阿蛇") return; // 簡單假設只有玩家是阿蛇
-            console.log(`${players[currentPlayerIndex]} 摸牌。`);
-            
-            // 摸一張牌放在中央
-            currentTileDiv.innerHTML = '<div class="piece large">炮</div>';
-            
-            // 更改提示與按鈕狀態
-            turnInfoText.innerText = "您的回合：請打出一張牌";
-            drawBtn.disabled = true;
-            eatBtn.disabled = true;
-            winBtn.style.display = "inline-block"; // 摸牌後才顯示胡牌按鈕
-            
-            // 重新開始出牌計時
-            startTimer();
-        }
-
-        // 打牌動作 (點擊手牌)
-        function handleDiscard(piece) {
-            if (players[currentPlayerIndex] !== "阿蛇") return;
-            console.log(`${players[currentPlayerIndex]} 打出：${piece.innerText}`);
-            // 打牌邏輯，移除這張手牌 (簡單實現)
-            piece.remove();
-            
-            // 如果中央有摸的牌，將其加入手牌並清空中央 (簡單實現)
-            if (currentTileDiv.innerHTML !== "") {
-                const newPieceText = currentTileDiv.innerText;
-                const newPiece = document.createElement('div');
-                newPiece.className = 'piece large';
-                newPiece.innerText = newPieceText;
-                newPiece.addEventListener('click', () => handleDiscard(newPiece));
-                handDiv.appendChild(newPiece);
-                currentTileDiv.innerHTML = "";
             }
-            
-            // 打牌後換人
-            changeTurn();
         }
+        updateUI(st);
+    });
 
-        // 胡牌動作 (點擊胡牌按鈕)
-        function handleWin() {
-            if (players[currentPlayerIndex] !== "阿蛇") return;
-            console.log(`${players[currentPlayerIndex]} 胡牌！遊戲結束。`);
-            
-            // 停止計時
-            clearInterval(turnTimer);
-            
-            // 特效：更新動態訊息，顯示遮罩
-            winMessage.innerText = `恭喜 ${players[currentPlayerIndex]} 胡牌！`;
-            winOverlay.classList.add("show");
-            
-            // 分數增加動畫 (簡單實現)
-            let currentScore = parseInt(document.getElementById(`player${currentPlayerIndex + 1}-score`).innerText);
-            document.getElementById(`player${currentPlayerIndex + 1}-score`).innerText = currentScore + 10;
-        }
+    socket.on('game_over', data => {
+        document.getElementById('ready-screen').classList.remove('active');
+        document.getElementById('winner-display-overlay').classList.remove('active');
+        document.getElementById('gameover-screen').classList.add('active');
+        
+        let tb = document.getElementById('ranking-table');
+        tb.innerHTML = '<tr><th>名次</th><th>玩家</th><th>總分</th><th>胡</th><th>槍</th><th>自摸</th><th>流局</th><th>勝率</th></tr>';
+        const medals = ['🥇', '🥈', '🥉', '第四名'];
+        data.rankings.forEach((p, i) => {
+            let tr = document.createElement('tr');
+            let totalRounds = p.stats.hu + p.stats.fangQiang + p.stats.liuJu;
+            let winRate = totalRounds > 0 ? Math.round((p.stats.hu / totalRounds) * 100) : 0;
+            tr.innerHTML = `<td>${medals[i] || i+1}</td><td>${p.name}</td><td><b>${p.score}</b></td>
+                            <td>${p.stats.hu}</td><td>${p.stats.fangQiang}</td><td>${p.stats.zimo}</td>
+                            <td>${p.stats.liuJu}</td><td>${winRate}%</td>`;
+            tb.appendChild(tr);
+        });
+    });
 
-        // 換人動作
-        function changeTurn() {
-            console.log(`${players[currentPlayerIndex]} 回合結束。`);
-            
-            // 隱藏胡牌按鈕
-            winBtn.style.display = "none";
-            
-            // 更新目前玩家索引
-            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
-            
-            // 更新頭像狀態
-            for (let i = 0; i < players.length; i++) {
-                document.getElementById(`player${i + 1}-info`).classList.remove("active");
-            }
-            document.getElementById(`player${currentPlayerIndex + 1}-info`).classList.add("active");
-            
-            // 更新提示文字
-            if (players[currentPlayerIndex] === "阿蛇") {
-                turnInfoText.innerText = "您的回合：請摸牌";
-                drawBtn.disabled = false;
-                eatBtn.disabled = false; // 這裡簡單啟用，吃牌邏輯需配合遊戲狀態
-            } else {
-                turnInfoText.innerText = `${players[currentPlayerIndex]} 回合中...`;
-                drawBtn.disabled = true;
-                eatBtn.disabled = true;
-            }
-            
-            // 重新開始新回合計時
-            startTimer();
-        }
+    function updateUI(st) {
+        const bar = document.getElementById('players-bar-container'); bar.innerHTML = '';
+        let isMyTurn = (st.players[st.currentTurnIndex]?.id === gs.pId);
 
-        //下一局
-        function handleNextRound() {
-            console.log("下一局。");
-            // 隱藏遮罩
-            winOverlay.classList.remove("show");
-            // 這裡可以加入重置遊戲狀態的邏輯
-            changeTurn(); // 簡單假設換下一個人開始新的一局
-        }
-
-        // 初始化
-        // 初始化玩家分數為 0
-        for (let i = 0; i < players.length; i++) {
-            document.getElementById(`player${i + 1}-score`).innerText = 0;
-        }
-        document.getElementById(`player${currentPlayerIndex + 1}-info`).classList.add("active");
-        startTimer();
-
-        // 事件監聽
-        drawBtn.addEventListener("click", handleDraw);
-        eatBtn.addEventListener("click", () => console.log(`${players[currentPlayerIndex]} 吃牌。`));
-        winBtn.addEventListener("click", handleWin);
-        nextRoundBtn.addEventListener("click", handleNextRound);
-        // 為現有手牌添加點擊事件
-        const handPieces = handDiv.querySelectorAll('.piece.large');
-        handPieces.forEach(piece => {
-            piece.addEventListener('click', () => handleDiscard(piece));
+        st.players.forEach(p => {
+            let c = document.createElement('div');
+            c.className = `player-info-card ${(st.players[st.currentTurnIndex]?.id === p.id && st.phase !== 'ROUND_OVER') ? 'active-turn' : ''}`;
+            c.innerHTML = `<div>${p.name}</div><div class="p-score">${p.score}</div>`;
+            bar.appendChild(c);
         });
 
-    </script>
+        let statusText = document.getElementById('turn-status-text');
+        let dBtn = document.getElementById('btn-draw'), eBtn = document.getElementById('btn-eat'), wBtn = document.getElementById('btn-win');
+        
+        dBtn.disabled = true; eBtn.disabled = true; wBtn.style.display = 'none';
+
+        if (st.phase === 'PLAYING') {
+            if (isMyTurn) {
+                if (!st.hasTakenCardThisTurn) {
+                    statusText.innerText = '您的回合：請摸牌或吃牌';
+                    dBtn.disabled = false; // 解鎖摸牌
+                    if (gs.pool.length > 0) eBtn.disabled = false; // 有牌解鎖吃牌
+                    
+                    // 若自己能抓別人的丟牌胡
+                    if (gs.pool.length > 0 && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) wBtn.style.display = 'block';
+                } else {
+                    statusText.innerText = '您的回合：請打出一張牌';
+                    // 檢查自摸
+                    if (gs.hand.length === 5 && checkHuClient(gs.hand)) wBtn.style.display = 'block'; 
+                }
+            } else {
+                statusText.innerText = '對手操作中...';
+                // 別人的回合，若剛有人丟牌且還沒摸牌/吃牌，其他人可搶胡
+                if (!st.hasTakenCardThisTurn && gs.pool.length > 0 && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) {
+                    wBtn.style.display = 'block'; 
+                }
+            }
+        }
+
+        const hc = document.getElementById('my-hand-tiles'); hc.innerHTML = '';
+        gs.hand.forEach(t => {
+            let d = document.createElement('div'); d.className = 'tile';
+            let img = getTileImg(t);
+            if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
+            
+            // 只有輪到自己且已拿牌(摸/吃)才能棄牌
+            if(isMyTurn && st.hasTakenCardThisTurn && gs.hand.length > 4) {
+                d.onclick = () => selectTile(t);
+                d.style.cursor = 'pointer';
+            } else {
+                d.style.cursor = 'default';
+            }
+            hc.appendChild(d);
+        });
+
+        const pc = document.getElementById('discarded-pool'); pc.innerHTML = '';
+        gs.pool.forEach((t, i) => {
+            let d = document.createElement('div'); d.className = 'tile';
+            d.style.width = 'clamp(40px, 10vw, 55px)'; d.style.height = 'clamp(40px, 10vw, 55px)'; d.style.fontSize = '20px';
+            let img = getTileImg(t);
+            if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
+            
+            if (i === gs.pool.length - 1 && st.phase === 'PLAYING' && !st.hasTakenCardThisTurn) {
+                d.classList.add('highlight');
+            }
+            pc.appendChild(d);
+        });
+    }
+</script>
 </body>
 </html>
