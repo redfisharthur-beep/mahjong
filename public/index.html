@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>象棋麻將遊戲（完整功能版）</title>
+    <style>
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f7f4ef;
+            height: 100vh;
+        }
+
+        #game-header {
+            background-color: #fff;
+            width: 100%;
+            padding: 10px 0;
+            border-bottom: 2px solid #e07a5f;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #game-round {
+            font-size: 1.2em;
+            color: #3d405b;
+        }
+
+        #tile-count {
+            color: #e07a5f;
+            font-weight: bold;
+        }
+
+        #player-infos {
+            display: flex;
+            gap: 15px;
+        }
+
+        .player-info {
+            padding: 8px 15px;
+            background-color: #fffdf5;
+            border: 1px solid #e6d7cc;
+            border-radius: 8px;
+            font-size: 0.9em;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .player-info.active {
+            background-color: #fff0ec;
+            border-color: #e07a5f;
+            box-shadow: 0 0 10px rgba(224, 122, 95, 0.2);
+        }
+
+        .player-name {
+            display: block;
+            margin-bottom: 2px;
+            color: #6b5b53;
+        }
+
+        /* 玩家分數在新的一行，呈現莫蘭迪淡紅 */
+        .player-score {
+            display: block;
+            color: rgba(195, 110, 130, 0.92); /* 莫蘭迪淡紅 */
+            font-weight: bold;
+        }
+
+        #turn-info {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            color: rgba(224, 122, 95, 0.85); /* 莫蘭迪紅 */
+            font-size: 1.1em;
+        }
+
+        #game-board {
+            flex-grow: 1;
+            width: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #current-tile {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #bottom-panel {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 0;
+            background-color: transparent;
+            gap: 20px;
+        }
+
+        #hand {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+        }
+
+        .piece {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background-color: #fff;
+            border: 2px solid #a89a90;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            user-select: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background-size: contain;
+            color: #584032;
+        }
+
+        #current-tile .piece {
+            width: 80px;
+            height: 80px;
+            font-size: 2.2em;
+        }
+
+        .piece.large {
+            cursor: pointer;
+        }
+
+        .piece.large:hover {
+            transform: scale(1.1);
+            border-color: #faedcd;
+            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+        }
+
+        #action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1.1em;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-weight: 500;
+        }
+
+        /* 普通按鈕使用莫蘭迪黃 */
+        .btn-normal {
+            background-color: rgba(244, 211, 94, 0.85); /* 莫蘭迪黃 */
+            color: #584032;
+        }
+
+        .btn-normal:hover {
+            background-color: #faedcd;
+            transform: translateY(-2px);
+        }
+
+        /* 胡牌按鈕使用莫蘭迪紅 */
+        .btn-win {
+            background-color: rgba(224, 122, 95, 0.85); /* 莫蘭迪紅 */
+            color: #fff;
+            display: none;
+        }
+
+        .btn-win:hover {
+            background-color: #e07a5f;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            background-color: #e0d5cb;
+            color: #a89a90;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #timer {
+            font-size: 1.1em;
+            color: rgba(144, 190, 109, 0.85); /* 莫蘭迪綠 */
+            margin-left: 10px;
+        }
+
+        /* === 特效部分 === */
+
+        /* 胡牌特效遮罩 */
+        #win-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* 初始隱藏 */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #win-overlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* 胡牌特效內容 */
+        #win-content {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(224, 122, 95, 0.5);
+        }
+
+        /* stylized 胡 char */
+        #win-title {
+            font-size: 8em;
+            color: #e07a5f;
+            margin: 0;
+            animation: winCharPulse 2s infinite, winCharZoom 0.5s ease-out;
+            display: inline-block;
+        }
+
+        #win-message {
+            font-size: 1.5em;
+            color: #3d405b;
+            margin-bottom: 20px;
+        }
+
+        #next-round-btn {
+            background-color: rgba(144, 224, 239, 0.85); /* 莫蘭迪藍 */
+            color: #584032;
+        }
+
+        #next-round-btn:hover {
+            background-color: #ade8f4;
+            transform: translateY(-2px);
+        }
+
+        @keyframes winCharPulse {
+            0% { text-shadow: 0 0 10px rgba(224, 122, 95, 0.8); }
+            50% { text-shadow: 0 0 20px rgba(224, 122, 95, 0.3); }
+            100% { text-shadow: 0 0 10px rgba(224, 122, 95, 0.8); }
+        }
+
+        @keyframes winCharZoom {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-header">
+        <div id="game-round">第 1 局</div>
+        <div id="player-infos">
+            <div id="player1-info" class="player-info">
+                <span class="player-name">阿蛇</span>
+                <span id="player1-score" class="player-score">0</span>
+            </div>
+            <div id="player2-info" class="player-info">
+                <span class="player-name">酷哥</span>
+                <span id="player2-score" class="player-score">0</span>
+            </div>
+            <div id="player3-info" class="player-info">
+                <span class="player-name">廢物</span>
+                <span id="player3-score" class="player-score">0</span>
+            </div>
+        </div>
+        <div id="tile-count-info">剩餘牌數：<span id="tile-count">32</span></div>
+    </div>
+
+    <div id="turn-info">您的回合：請摸牌</div>
+
+    <div id="game-board">
+        <div id="current-tile">
+            <!-- 剛摸的牌會在這裡 -->
+        </div>
+    </div>
+
+    <div id="bottom-panel">
+        <div id="hand">
+            <!-- 玩家的手牌 -->
+            <div class="piece large">帥</div>
+            <div class="piece large">仕</div>
+            <div class="piece large">相</div>
+            <div class="piece large">俥</div>
+        </div>
+        
+        <div id="action-buttons">
+            <button id="draw-btn" class="btn-normal">摸牌</button>
+            <button id="eat-btn" class="btn-normal" disabled>吃牌</button>
+            <button id="win-btn" class="btn-win">胡牌！</button>
+            <span id="timer">剩餘時間：10s</span>
+        </div>
+    </div>
+
+    <!-- === 胡牌特效遮罩 === -->
+    <div id="win-overlay">
+        <div id="win-content">
+            <h1 id="win-title">胡</h1>
+            <p id="win-message"></p>
+            <button id="next-round-btn" class="btn-normal">下一局</button>
+        </div>
+    </div>
+
+    <script>
+        // 遊戲狀態與計時器變數
+        let currentPlayerIndex = 0; // 0=阿蛇, 1=酷哥, 2=廢物
+        const players = ["阿蛇", "酷哥", "廢物"];
+        let timeLeft = 10;
+        let turnTimer;
+
+        // UI 元素
+        const turnInfoText = document.getElementById("turn-info");
+        const timerText = document.getElementById("timer");
+        const drawBtn = document.getElementById("draw-btn");
+        const eatBtn = document.getElementById("eat-btn");
+        const winBtn = document.getElementById("win-btn");
+        const currentTileDiv = document.getElementById("current-tile");
+        const handDiv = document.getElementById("hand");
+        
+        // 特效 UI 元素
+        const winOverlay = document.getElementById("win-overlay");
+        const winMessage = document.getElementById("win-message");
+        const nextRoundBtn = document.getElementById("next-round-btn");
+
+        // 開始計時器
+        function startTimer() {
+            clearInterval(turnTimer);
+            timeLeft = 10;
+            updateTimerDisplay();
+            
+            turnTimer = setInterval(() => {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    clearInterval(turnTimer);
+                    // 超時，強制打一張牌並換人 (實際邏輯需依遊戲而定)
+                    console.log(`${players[currentPlayerIndex]} 超時！自動打牌。`);
+                    changeTurn();
+                } else {
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        // 更新時間顯示
+        function updateTimerDisplay() {
+            timerText.innerText = `剩餘時間：${timeLeft}s`;
+        }
+
+        // 摸牌動作
+        function handleDraw() {
+            if (players[currentPlayerIndex] !== "阿蛇") return; // 簡單假設只有玩家是阿蛇
+            console.log(`${players[currentPlayerIndex]} 摸牌。`);
+            
+            // 摸一張牌放在中央
+            currentTileDiv.innerHTML = '<div class="piece large">炮</div>';
+            
+            // 更改提示與按鈕狀態
+            turnInfoText.innerText = "您的回合：請打出一張牌";
+            drawBtn.disabled = true;
+            eatBtn.disabled = true;
+            winBtn.style.display = "inline-block"; // 摸牌後才顯示胡牌按鈕
+            
+            // 重新開始出牌計時
+            startTimer();
+        }
+
+        // 打牌動作 (點擊手牌)
+        function handleDiscard(piece) {
+            if (players[currentPlayerIndex] !== "阿蛇") return;
+            console.log(`${players[currentPlayerIndex]} 打出：${piece.innerText}`);
+            // 打牌邏輯，移除這張手牌 (簡單實現)
+            piece.remove();
+            
+            // 如果中央有摸的牌，將其加入手牌並清空中央 (簡單實現)
+            if (currentTileDiv.innerHTML !== "") {
+                const newPieceText = currentTileDiv.innerText;
+                const newPiece = document.createElement('div');
+                newPiece.className = 'piece large';
+                newPiece.innerText = newPieceText;
+                newPiece.addEventListener('click', () => handleDiscard(newPiece));
+                handDiv.appendChild(newPiece);
+                currentTileDiv.innerHTML = "";
+            }
+            
+            // 打牌後換人
+            changeTurn();
+        }
+
+        // 胡牌動作 (點擊胡牌按鈕)
+        function handleWin() {
+            if (players[currentPlayerIndex] !== "阿蛇") return;
+            console.log(`${players[currentPlayerIndex]} 胡牌！遊戲結束。`);
+            
+            // 停止計時
+            clearInterval(turnTimer);
+            
+            // 特效：更新動態訊息，顯示遮罩
+            winMessage.innerText = `恭喜 ${players[currentPlayerIndex]} 胡牌！`;
+            winOverlay.classList.add("show");
+            
+            // 分數增加動畫 (簡單實現)
+            let currentScore = parseInt(document.getElementById(`player${currentPlayerIndex + 1}-score`).innerText);
+            document.getElementById(`player${currentPlayerIndex + 1}-score`).innerText = currentScore + 10;
+        }
+
+        // 換人動作
+        function changeTurn() {
+            console.log(`${players[currentPlayerIndex]} 回合結束。`);
+            
+            // 隱藏胡牌按鈕
+            winBtn.style.display = "none";
+            
+            // 更新目前玩家索引
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            
+            // 更新頭像狀態
+            for (let i = 0; i < players.length; i++) {
+                document.getElementById(`player${i + 1}-info`).classList.remove("active");
+            }
+            document.getElementById(`player${currentPlayerIndex + 1}-info`).classList.add("active");
+            
+            // 更新提示文字
+            if (players[currentPlayerIndex] === "阿蛇") {
+                turnInfoText.innerText = "您的回合：請摸牌";
+                drawBtn.disabled = false;
+                eatBtn.disabled = false; // 這裡簡單啟用，吃牌邏輯需配合遊戲狀態
+            } else {
+                turnInfoText.innerText = `${players[currentPlayerIndex]} 回合中...`;
+                drawBtn.disabled = true;
+                eatBtn.disabled = true;
+            }
+            
+            // 重新開始新回合計時
+            startTimer();
+        }
+
+        //下一局
+        function handleNextRound() {
+            console.log("下一局。");
+            // 隱藏遮罩
+            winOverlay.classList.remove("show");
+            // 這裡可以加入重置遊戲狀態的邏輯
+            changeTurn(); // 簡單假設換下一個人開始新的一局
+        }
+
+        // 初始化
+        // 初始化玩家分數為 0
+        for (let i = 0; i < players.length; i++) {
+            document.getElementById(`player${i + 1}-score`).innerText = 0;
+        }
+        document.getElementById(`player${currentPlayerIndex + 1}-info`).classList.add("active");
+        startTimer();
+
+        // 事件監聽
+        drawBtn.addEventListener("click", handleDraw);
+        eatBtn.addEventListener("click", () => console.log(`${players[currentPlayerIndex]} 吃牌。`));
+        winBtn.addEventListener("click", handleWin);
+        nextRoundBtn.addEventListener("click", handleNextRound);
+        // 為現有手牌添加點擊事件
+        const handPieces = handDiv.querySelectorAll('.piece.large');
+        handPieces.forEach(piece => {
+            piece.addEventListener('click', () => handleDiscard(piece));
+        });
+
+    </script>
+</body>
+</html>
