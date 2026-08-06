@@ -22,13 +22,20 @@
         .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; background-color: var(--bg-color); padding: 15px; overflow-y: auto; }
         .screen.active { display: flex; }
 
-        #lobby-screen { background: linear-gradient(rgba(110, 100, 90, 0.825), rgba(110, 100, 90, 0.825)), url('lobby-bg.png'); background-size: cover; background-position: center 5%; justify-content: center; padding-top: 0;}
+        /* 首頁背景圖設定：使用本地 lobby-bg.png 並加上遮罩讓文字清晰易讀 */
+        #lobby-screen { 
+            background: linear-gradient(rgba(110, 100, 90, 0.5), rgba(110, 100, 90, 0.5)), url('lobby-bg.png'); 
+            background-size: cover; 
+            background-position: center;
+            justify-content: center; 
+            padding-top: 0;
+        }
         .lobby-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 450px; z-index: 2; }
         input, button { padding: 14px 22px; font-size: 18px; border-radius: 16px; border: 2px solid var(--card-border); margin: 6px; max-width: 100%; outline: none; z-index: 2; font-weight: normal; }
         #player-name-input { background: #ffffff; color: var(--text-main); text-align: center; width: 100%; max-width: 280px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); font-size: 22px; }
         button { background-color: var(--button-bg); color: #fff; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(212, 163, 115, 0.3); }
-        button:hover { background-color: var(--accent-active); transform: translateY(-2px); }
-        button:disabled { background: #e0d5cb; cursor: not-allowed; transform: none; box-shadow: none; opacity: 0.6; }
+        button:hover:not(:disabled) { background-color: var(--accent-active); transform: translateY(-2px); }
+        button:disabled { background: #e0d5cb !important; color: #a89a90 !important; cursor: not-allowed; transform: none; box-shadow: none; opacity: 0.6; }
         
         .room-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; margin-top: 15px; }
         .room-card { padding: 22px 12px; border-radius: 20px; text-align: center; cursor: pointer; color: #4a403a; box-shadow: 0 6px 15px rgba(0,0,0,0.05); font-size: 22px; border: 2px solid #fff; transition: all 0.2s; }
@@ -37,18 +44,25 @@
         
         #game-screen { background-color: var(--bg-color); }
         .game-header { width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: clamp(15px, 4vw, 18px); padding: 12px 18px; background: #fffaf5; border-bottom: 2px solid var(--card-border); border-radius: 0 0 16px 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 5px; }
+        
         .players-bar { display: flex; gap: 8px; width: 100%; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
-        .player-info-card { background: #fffaf5; padding: 8px 14px; border-radius: 12px; font-size: clamp(14px, 3.5vw, 16px); border: 2px solid var(--card-border); white-space: nowrap; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px;}
-        .player-info-card.active-turn { border-color: var(--accent-active); background: #fff0ec; color: var(--accent-active); }
+        /* 玩家圖卡：顏色區別與動物圖示 */
+        .player-info-card { padding: 8px 14px; border-radius: 12px; font-size: clamp(14px, 3.5vw, 16px); border: 2px solid var(--card-border); white-space: nowrap; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .player-info-card:nth-child(1) { background-color: #e3f2fd; border-color: #90caf9; }
+        .player-info-card:nth-child(2) { background-color: #fce4ec; border-color: #f48fb1; }
+        .player-info-card:nth-child(3) { background-color: #e8f5e9; border-color: #a5d6a7; }
+        .player-info-card:nth-child(4) { background-color: #fffde7; border-color: #fff59d; }
+
+        .player-info-card.active-turn { border-color: var(--accent-active); box-shadow: 0 0 10px rgba(224, 122, 95, 0.5); }
         .p-score { color: var(--muted-red); font-size: 1.2em; font-weight: bold; }
-        .player-info-card.active-turn .p-score { color: var(--accent-active); }
 
         .center-pool { flex: 1; width: 100%; max-width: 700px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px; position: relative; }
         .discarded-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; justify-items: center; width: 100%; max-width: 400px; }
         
-        .tile { width: clamp(55px, 15vw, 75px); height: clamp(55px, 15vw, 75px); border-radius: 50%; background-color: transparent; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; background-size: cover; background-position: center; background-repeat: no-repeat; box-shadow: 0 6px 12px rgba(0,0,0,0.15); font-size: 26px; border: none; outline: none; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        /* 棋子樣式：完全移除白色背景與白框，改用陰影透顯 */
+        .tile { width: clamp(55px, 15vw, 75px); height: clamp(55px, 15vw, 75px); border-radius: 50%; background-color: transparent; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; background-size: cover; background-position: center; background-repeat: no-repeat; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.25)); font-size: 26px; border: none; outline: none; transition: transform 0.2s ease; }
         .tile:active { transform: scale(0.95); }
-        .tile.highlight { box-shadow: 0 10px 20px rgba(0,0,0,0.3); transform: scale(1.4); z-index: 5; }
+        .tile.highlight { filter: drop-shadow(0 0 8px var(--accent-active)); transform: scale(1.15); z-index: 5; }
         .tile.large { width: clamp(75px, 18vw, 95px); height: clamp(75px, 18vw, 95px); font-size: clamp(26px, 7vw, 38px); }
         
         .action-panel { display: flex; gap: 10px; margin: 8px 0; align-items: center; justify-content: center; width: 100%; flex-wrap: wrap; }
@@ -58,19 +72,26 @@
         .player-section { width: 100%; padding: 16px; display: flex; justify-content: center; min-height: 100px;}
         .my-tiles { display: flex; gap: 12px; align-items: center; justify-content: center; }
         
+        /* 胡牌公開展示區：改為 2 行 (上2棋 + 下3棋) */
         #winner-display-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(247, 244, 239, 0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; border-radius: 20px;}
         #winner-display-overlay.active { display: flex; }
+        .winning-rows-container { display: flex; flex-direction: column; gap: 12px; align-items: center; margin: 15px 0; }
+        .winning-row { display: flex; gap: 12px; justify-content: center; }
+
         #ready-screen, #gameover-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(247, 244, 239, 0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; padding: 20px; text-align: center; }
         #ready-screen.active, #gameover-screen.active { display: flex; }
         
-        .ranking-table { width: 100%; max-width: 400px; border-collapse: collapse; margin: 15px 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .ranking-table th, .ranking-table td { padding: 12px 8px; border-bottom: 1px solid var(--card-border); text-align: center; font-size: 15px; }
+        .ranking-table { width: 100%; max-width: 450px; border-collapse: collapse; margin: 15px 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .ranking-table th, .ranking-table td { padding: 10px 6px; border-bottom: 1px solid var(--card-border); text-align: center; font-size: 14px; }
         .ranking-table th { background: #fdfaf6; color: var(--accent-active); }
         
         #message-modal { position: fixed; top: 20px; background-color: #fffaf5; color: var(--accent-active); border: 2px solid var(--card-border); padding: 14px 24px; border-radius: 16px; font-size: 18px; display: none; z-index: 100; left: 50%; transform: translateX(-50%); }
     </style>
 </head>
 <body>
+    <!-- 胡牌音效元素 -->
+    <audio id="win-sound" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" preload="auto"></audio>
+
 <div id="app">
     <div id="message-modal">提示訊息</div>
     
@@ -106,11 +127,17 @@
 
         <div class="center-pool">
             <div id="winner-display-overlay">
-                <h2 id="winner-title" style="color: var(--accent-active); font-size: 28px; margin-bottom: 10px;"></h2>
-                <p id="winner-desc" style="font-size: 18px; color: var(--text-main); margin-bottom: 15px;"></p>
-                <div class="my-tiles" id="winning-tiles-container"></div>
-                <div style="margin-top:20px; font-size: 16px; color: var(--text-light);">自動倒數 <span id="next-timer">5</span>s 進入下一把</div>
-                <button id="btn-next-round" onclick="clickNextRound()" style="margin-top: 15px;">下一把</button>
+                <h2 id="winner-title" style="color: var(--accent-active); font-size: 28px; margin-bottom: 5px;"></h2>
+                <p id="winner-desc" style="font-size: 18px; color: var(--text-main); margin-bottom: 10px;"></p>
+                
+                <!-- 胡牌展示改為 2 行 (上2棋 + 下3棋) -->
+                <div class="winning-rows-container">
+                    <div id="winning-row-top" class="winning-row"></div>
+                    <div id="winning-row-bottom" class="winning-row"></div>
+                </div>
+
+                <div style="margin-top:15px; font-size: 16px; color: var(--text-light);">倒數 <span id="next-timer">5</span>s 進入下一把</div>
+                <button id="btn-next-round" onclick="clickNextRound()" style="margin-top: 10px;">下一把</button>
             </div>
             <div class="discarded-tiles" id="discarded-pool"></div>
         </div>
@@ -132,6 +159,9 @@
     const socket = io();
     let gs = { id: '', pId: '', p: [], hand: [], pool: [], tIdx: 0, phase: '', turnCard: false };
 
+    // 玩家專屬可愛小動物陣列
+    const animalAvatars = ['🐶', '🐱', '🐰', '🦊', '🐼', '🐨'];
+
     function getTileImg(name) {
         const m = {
             '帥':'red_shuai.png','仕':'red_shi.png','相':'red_xiang.png','俥':'red_che.png','傌':'red_ma.png','炮':'red_pao.png','兵':'red_bing.png',
@@ -146,6 +176,7 @@
         setTimeout(() => m.style.display = 'none', 2000);
     }
 
+    // 前端同步計算胡牌輔助驗證
     function checkHuClient(hand, extraCard = null) {
         let testHand = [...hand];
         if (extraCard) testHand.push(extraCard);
@@ -169,13 +200,15 @@
 
         if (counts['兵'] === 5 || counts['卒'] === 5) return true;
         if (hasSubset(['帥', '將', '兵', '兵', '兵']) || hasSubset(['帥', '將', '卒', '卒', '卒'])) return true;
-        if (counts['兵'] >= 3) {
-            let temp = { ...counts }; temp['兵'] -= 3;
-            for (let t in temp) { if (temp[t] === 2 && t !== '帥' && t !== '將' && ['仕', '相', '俥', '傌', '炮'].includes(t)) return true; }
-        }
-        if (counts['卒'] >= 3) {
-            let temp = { ...counts }; temp['卒'] -= 3;
-            for (let t in temp) { if (temp[t] === 2 && t !== '帥' && t !== '將' && ['士', '象', '車', '馬', '包'].includes(t)) return true; }
+        if ((counts['兵'] === 2 && counts['卒'] === 3) || (counts['兵'] === 3 && counts['卒'] === 2)) return true;
+        
+        const validPairs = ['仕', '相', '俥', '傌', '炮', '士', '象', '車', '馬', '包'];
+        if (counts['兵'] === 3 || counts['卒'] === 3) {
+            let pawnTile = counts['兵'] === 3 ? '兵' : '卒';
+            let temp = { ...counts }; temp[pawnTile] -= 3;
+            let rem = [];
+            for (let t in temp) { for (let i = 0; i < temp[t]; i++) rem.push(t); }
+            if (rem.length === 2 && rem[0] === rem[1]) return true;
         }
         if (hasSubset(['帥', '仕', '相']) && checkPairInRemaining(['帥', '仕', '相'])) return true;
         if (hasSubset(['將', '士', '象']) && checkPairInRemaining(['將', '士', '象'])) return true;
@@ -219,7 +252,7 @@
     socket.on('room_state_update', st => {
         gs.id = st.id; gs.pId = socket.id; gs.p = st.players; gs.phase = st.phase; 
         gs.tIdx = st.currentTurnIndex; gs.turnCard = st.hasTakenCardThisTurn;
-        gs.hand = st.myHands[socket.id] || []; gs.pool = st.discardPool;
+        gs.hand = st.myHands[socket.id] || []; gs.pool = st.discardPool || [];
 
         const rs = document.getElementById('ready-screen'), overlay = document.getElementById('winner-display-overlay');
         rs.classList.remove('active'); overlay.classList.remove('active');
@@ -235,16 +268,35 @@
         } else if (st.phase === 'ROUND_OVER') {
             overlay.classList.add('active');
             document.getElementById('btn-next-round').disabled = false;
+            
+            // 播放胡牌音效
+            const winAudio = document.getElementById('win-sound');
+            if (winAudio) {
+                winAudio.currentTime = 0;
+                winAudio.play().catch(e => console.log("音效播放需要網頁互動授權", e));
+            }
+
             if(st.winningInfo) {
                 document.getElementById('winner-title').innerText = st.winningInfo.title || '流局';
                 document.getElementById('winner-desc').innerText = st.winningInfo.desc || '';
-                const wc = document.getElementById('winning-tiles-container'); wc.innerHTML = '';
+                
+                // 將胡牌手牌分為 2 行展示 (上2棋 + 下3棋)
+                const rowTop = document.getElementById('winning-row-top');
+                const rowBottom = document.getElementById('winning-row-bottom');
+                rowTop.innerHTML = '';
+                rowBottom.innerHTML = '';
+
                 if(st.winningInfo.winningHand) {
-                    st.winningInfo.winningHand.forEach(t => {
+                    st.winningInfo.winningHand.forEach((t, index) => {
                         let d = document.createElement('div'); d.className = 'tile large';
                         let img = getTileImg(t);
                         if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
-                        wc.appendChild(d);
+                        
+                        if (index < 2) {
+                            rowTop.appendChild(d);
+                        } else {
+                            rowBottom.appendChild(d);
+                        }
                     });
                 }
             }
@@ -262,8 +314,8 @@
         const medals = ['🥇', '🥈', '🥉', '第四名'];
         data.rankings.forEach((p, i) => {
             let tr = document.createElement('tr');
-            let totalRounds = p.stats.hu + p.stats.fangQiang + p.stats.liuJu;
-            let winRate = totalRounds > 0 ? Math.round((p.stats.hu / totalRounds) * 100) : 0;
+            // 勝率計算：(胡的總次數 / 10個場次) * 100%
+            let winRate = Math.round((p.stats.hu / 10) * 100);
             tr.innerHTML = `<td>${medals[i] || i+1}</td><td>${p.name}</td><td><b>${p.score}</b></td>
                             <td>${p.stats.hu}</td><td>${p.stats.fangQiang}</td><td>${p.stats.zimo}</td>
                             <td>${p.stats.liuJu}</td><td>${winRate}%</td>`;
@@ -275,48 +327,64 @@
         const bar = document.getElementById('players-bar-container'); bar.innerHTML = '';
         let isMyTurn = (st.players[st.currentTurnIndex]?.id === gs.pId);
 
-        st.players.forEach(p => {
+        // 渲染玩家列表 (附加動物圖示與不同顏色識別)
+        st.players.forEach((p, index) => {
+            let animal = animalAvatars[index % animalAvatars.length];
             let c = document.createElement('div');
             c.className = `player-info-card ${(st.players[st.currentTurnIndex]?.id === p.id && st.phase !== 'ROUND_OVER') ? 'active-turn' : ''}`;
-            c.innerHTML = `<div>${p.name}</div><div class="p-score">${p.score}</div>`;
+            c.innerHTML = `<div>${animal} ${p.name}</div><div class="p-score">${p.score}</div>`;
             bar.appendChild(c);
         });
 
         let statusText = document.getElementById('turn-status-text');
         let dBtn = document.getElementById('btn-draw'), eBtn = document.getElementById('btn-eat'), wBtn = document.getElementById('btn-win');
         
-        dBtn.disabled = true; eBtn.disabled = true; wBtn.style.display = 'none';
+        dBtn.disabled = true; 
+        eBtn.disabled = true; 
+        wBtn.style.display = 'none';
+
+        const poolHasCards = gs.pool.length > 0;
 
         if (st.phase === 'PLAYING') {
             if (isMyTurn) {
                 if (!st.hasTakenCardThisTurn) {
-                    statusText.innerText = '您的回合：請摸牌或吃牌';
-                    dBtn.disabled = false; // 解鎖摸牌
-                    if (gs.pool.length > 0) eBtn.disabled = false; // 有牌解鎖吃牌
+                    dBtn.disabled = false; // 允許摸牌
                     
-                    // 若自己能抓別人的丟牌胡
-                    if (gs.pool.length > 0 && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) wBtn.style.display = 'block';
+                    if (poolHasCards) {
+                        eBtn.disabled = false; 
+                        statusText.innerText = '您的回合：請選擇【摸牌】或【吃牌】';
+                    } else {
+                        eBtn.disabled = true; 
+                        statusText.innerText = '您的回合：第一手請【摸牌】';
+                    }
+                    
+                    // 檢查是否可抓別人放槍胡牌
+                    if (poolHasCards && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) {
+                        wBtn.style.display = 'block';
+                    }
                 } else {
-                    statusText.innerText = '您的回合：請打出一張牌';
-                    // 檢查自摸
-                    if (gs.hand.length === 5 && checkHuClient(gs.hand)) wBtn.style.display = 'block'; 
+                    statusText.innerText = '您的回合：請點擊手牌打出一張牌';
+                    // 檢查自摸胡牌條件
+                    if (gs.hand.length === 5 && checkHuClient(gs.hand)) {
+                        wBtn.style.display = 'block'; 
+                    }
                 }
             } else {
-                statusText.innerText = '對手操作中...';
-                // 別人的回合，若剛有人丟牌且還沒摸牌/吃牌，其他人可搶胡
-                if (!st.hasTakenCardThisTurn && gs.pool.length > 0 && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) {
+                statusText.innerText = `等待 ${st.players[st.currentTurnIndex]?.name || ''} 操作中...`;
+                // 非自己回合時，若棄牌堆有牌，可進行放槍胡牌
+                if (!st.hasTakenCardThisTurn && poolHasCards && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) {
                     wBtn.style.display = 'block'; 
                 }
             }
         }
 
+        // 渲染手牌
         const hc = document.getElementById('my-hand-tiles'); hc.innerHTML = '';
         gs.hand.forEach(t => {
             let d = document.createElement('div'); d.className = 'tile';
             let img = getTileImg(t);
             if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
             
-            // 只有輪到自己且已拿牌(摸/吃)才能棄牌
             if(isMyTurn && st.hasTakenCardThisTurn && gs.hand.length > 4) {
                 d.onclick = () => selectTile(t);
                 d.style.cursor = 'pointer';
@@ -326,6 +394,7 @@
             hc.appendChild(d);
         });
 
+        // 渲染棄牌堆
         const pc = document.getElementById('discarded-pool'); pc.innerHTML = '';
         gs.pool.forEach((t, i) => {
             let d = document.createElement('div'); d.className = 'tile';
