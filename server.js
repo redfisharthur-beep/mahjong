@@ -27,7 +27,7 @@ const ROOM_COLORS = ['room-ruby', 'room-yellow', 'room-green', 'room-blue'];
 const rooms = {};
 
 // ==========================================
-// 2. 核心：胡牌演算法 (修正支援跨色對子 + 正確分數)
+// 2. 核心：胡牌演算法與加成評分
 // ==========================================
 function checkWin(hand) {
     if (!hand || hand.length !== 5) return 0;
@@ -53,32 +53,56 @@ function checkWin(hand) {
         return rem.length === 2 && rem[0] === rem[1];
     };
 
-    // ③ 兵兵兵兵兵 或 卒卒卒卒卒 (=10分)
-    if (counts['兵'] === 5 || counts['卒'] === 5) return 10;
+    let baseScore = 0;
 
-    // ⑤ 帥+將+兵兵兵 或 卒卒卒 (=8分)
-    if (hasSubset(['帥', '將', '兵', '兵', '兵']) || hasSubset(['帥', '將', '卒', '卒', '卒'])) return 8;
+    // ③ 5張兵 或 5張卒 (=10分)
+    if (counts['兵'] === 5 || counts['卒'] === 5) baseScore = Math.max(baseScore, 10);
 
-    // ④ 除了將/帥以外：任意兩張相同棋子 + 兵兵兵 或 卒卒卒 (=5分，包含相相+卒卒卒跨色組合)
-    const validPairs = ['仕', '相', '俥', '傌', '炮', '士', '象', '車', '馬', '包'];
+    // ⑤ 帥+將+3張兵/卒 (=6分)
+    if (hasSubset(['帥', '將', '兵', '兵', '兵']) || hasSubset(['帥', '將', '卒', '卒', '卒'])) {
+        baseScore = Math.max(baseScore, 6);
+    }
+
+    // 新條件：兵兵卒卒卒 或 兵兵兵卒卒 (=4分)
+    if ((counts['兵'] === 2 && counts['卒'] === 3) || (counts['兵'] === 3 && counts['卒'] === 2)) {
+        baseScore = Math.max(baseScore, 4);
+    }
+
+    // ① 帥仕相 / 將士象 + 對子 (=4分)
+    if (hasSubset(['帥', '仕', '相']) && checkPairInRemaining(['帥', '仕', '相'])) baseScore = Math.max(baseScore, 4);
+    if (hasSubset(['將', '士', '象']) && checkPairInRemaining(['將', '士', '象'])) baseScore = Math.max(baseScore, 4);
+
+    // ② 俥傌炮 / 車馬包 + 對子 (=3分)
+    if (hasSubset(['俥', '傌', '炮']) && checkPairInRemaining(['俥', '傌', '炮'])) baseScore = Math.max(baseScore, 3);
+    if (hasSubset(['車', '馬', '包']) && checkPairInRemaining(['車', '馬', '包'])) baseScore = Math.max(baseScore, 3);
+
+    // ④ 任意兩張相同棋子 + 兵兵兵 或 卒卒卒 (=3分)
     if (counts['兵'] === 3 || counts['卒'] === 3) {
         let pawnTile = counts['兵'] === 3 ? '兵' : '卒';
         let temp = { ...counts };
         temp[pawnTile] -= 3;
+        let rem = [];
         for (let t in temp) {
-            if (temp[t] === 2 && validPairs.includes(t)) return 5;
+            for (let i = 0; i < temp[t]; i++) rem.push(t);
+        }
+        if (rem.length === 2 && rem[0] === rem[1]) {
+            baseScore = Math.max(baseScore, 3);
         }
     }
 
-    // ① 帥仕相 / 將士象 + 對子 (=4分)
-    if (hasSubset(['帥', '仕', '相']) && checkPairInRemaining(['帥', '仕', '相'])) return 4;
-    if (hasSubset(['將', '士', '象']) && checkPairInRemaining(['將', '士', '象'])) return 4;
+    if (baseScore === 0) return 0;
 
-    // ② 俥傌炮 / 車馬包 + 對子 (=3分)
-    if (hasSubset(['俥', '傌', '炮']) && checkPairInRemaining(['俥', '傌', '炮'])) return 3;
-    if (hasSubset(['車', '馬', '包']) && checkPairInRemaining(['車', '馬', '包'])) return 3;
+    // 顏色加成：同色全紅或全黑再加 1分
+    const redTiles = ['帥', '仕', '相', '俥', '傌', '炮', '兵'];
+    const blackTiles = ['將', '士', '象', '車', '馬', '包', '卒'];
+    const isAllRed = hand.every(t => redTiles.includes(t));
+    const isAllBlack = hand.every(t => blackTiles.includes(t));
 
-    return 0;
+    if (isAllRed || isAllBlack) {
+        baseScore += 1;
+    }
+
+    return baseScore;
 }
 
 // ==========================================
@@ -104,6 +128,7 @@ class GameRoom {
         this.phase = 'WAITING';
         this.currentTurnIndex = 0; 
         this.hasTakenCardThisTurn = false;
+        this.tookDrawThisTurn = false; // 嚴格自摸判定標記
         this.lastDiscardBy = null;
         this.winningInfo = null;
         this.timeLeft = 8;
@@ -169,6 +194,7 @@ class GameRoom {
 
     startTurn() {
         this.hasTakenCardThisTurn = false;
+        this.tookDrawThisTurn = false;
         this.phase = 'PLAYING';
         this.broadcast();
         
@@ -180,12 +206,8 @@ class GameRoom {
                 if (this.deck.length > 0) {
                     hand.push(this.deck.pop());
                     this.hasTakenCardThisTurn = true;
+                    this.tookDrawThisTurn = true; // 逾時自動摸牌也視為摸牌
                     this.broadcast(); 
-                    
-                    if (checkWin(hand) > 0) {
-                        this.handleWin(pid, true);
-                        return;
-                    }
                 } else {
                     this.handleLiuJu();
                     return;
@@ -224,14 +246,14 @@ class GameRoom {
         const winner = this.players.find(p => p.id === winnerId);
         
         if (isZimo) {
-            this.stats[winnerId].score += (pts * 2);
+            this.stats[winnerId].score += (pts * 2); // 自摸分數兩倍
             this.stats[winnerId].zimo += 1;
             this.stats[winnerId].hu += 1;
             this.liuJuFirstPlayerId = winnerId;
         } else {
             this.stats[winnerId].score += pts;
             this.stats[winnerId].hu += 1;
-            this.stats[this.lastDiscardBy].score -= pts;
+            this.stats[this.lastDiscardBy].score -= pts; // 放槍者扣除對應積分
             this.stats[this.lastDiscardBy].fangQiang += 1;
             this.liuJuFirstPlayerId = this.lastDiscardBy;
         }
@@ -342,8 +364,8 @@ io.on('connection', socket => {
             if (r.deck.length > 0) {
                 hand.push(r.deck.pop());
                 r.hasTakenCardThisTurn = true; 
+                r.tookDrawThisTurn = true; // 嚴格標記：手動點擊摸牌
                 r.broadcast();
-                if (checkWin(hand) > 0) return r.handleWin(socket.id, true);
                 
                 r.startTimer(8, () => {
                     if (hand.length > 4) {
@@ -361,9 +383,8 @@ io.on('connection', socket => {
                 clearInterval(r.interval);
                 hand.push(r.discardPool.pop());
                 r.hasTakenCardThisTurn = true; 
+                r.tookDrawThisTurn = false; // 吃牌不屬於摸牌
                 r.broadcast();
-                
-                if (checkWin(hand) > 0) return r.handleWin(socket.id, true); 
 
                 r.startTimer(8, () => {
                      if (hand.length > 4) {
@@ -373,19 +394,25 @@ io.on('connection', socket => {
                 });
             }
         }
-        // 3. 胡牌
+        // 3. 胡牌按鈕觸發
         else if (data.actionType === 'win') {
+            // A. 放槍胡：自己尚未摸牌，且棄牌堆有牌
             if (!r.hasTakenCardThisTurn && r.discardPool.length > 0) {
                 let fangQiangTile = r.discardPool[r.discardPool.length - 1];
                 let testHand = [...hand, fangQiangTile];
                 if (checkWin(testHand) > 0) {
                     r.hands[socket.id] = testHand;
                     r.discardPool.pop(); 
-                    r.handleWin(socket.id, false);
+                    r.handleWin(socket.id, false); // 放槍胡
                 }
             } 
+            // B. 自摸胡：自己回合，已拿牌且手牌 5 張
             else if (isMyTurn && r.hasTakenCardThisTurn && hand.length === 5) {
-                if (checkWin(hand) > 0) r.handleWin(socket.id, true);
+                if (checkWin(hand) > 0) {
+                    // 嚴格判定：必須由手動摸牌而來 (tookDrawThisTurn === true) 才能算自摸加倍
+                    let isZimo = (r.tookDrawThisTurn === true);
+                    r.handleWin(socket.id, isZimo);
+                }
             }
         }
         // 4. 棄牌
@@ -428,7 +455,6 @@ io.on('connection', socket => {
     });
 });
 
-// 初始化 4 個預設房間
 const defaultRooms = ['紅梅小棧', '金盞庭園', '翠竹居所', '碧海閣樓'];
 defaultRooms.forEach((name, i) => {
     const id = `room${i+1}`;
