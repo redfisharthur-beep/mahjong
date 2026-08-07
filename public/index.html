@@ -22,12 +22,11 @@
         .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; background-color: var(--bg-color); padding: 15px; overflow-y: auto; }
         .screen.active { display: flex; }
 
-        /* 首頁背景圖設定：縮小為 0.8 倍 (80%) */
+        /* 首頁背景圖設定：使用本地 lobby-bg.png 並加上遮罩讓文字清晰易讀 */
         #lobby-screen { 
             background: linear-gradient(rgba(110, 100, 90, 0.5), rgba(110, 100, 90, 0.5)), url('lobby-bg.png'); 
-            background-size: 80%; 
+            background-size: cover; 
             background-position: center;
-            background-repeat: no-repeat;
             justify-content: center; 
             padding-top: 0;
         }
@@ -91,7 +90,7 @@
         }
         .action-panel button { padding: 10px; font-size: clamp(15px, 4vw, 18px); border-radius: 12px; font-weight: normal; width: 100%; max-width: 90px; }
         
-        /* 放大 1.3 倍的胡牌按鈕樣式 */
+        /* 放大 1.3 倍的胡牌按鈕樣式 (尺寸與字體同步放大) */
         #btn-win {
             transform: scale(1.3);
             transform-origin: center;
@@ -184,7 +183,7 @@
                 <div class="timer-display"><span id="timer-text" style="font-size: 42px; line-height: 1;">8</span></div>
             </div>
             
-            <!-- 第 3 格：胡牌 -->
+            <!-- 第 3 格：胡牌 (已拿掉驚嘆號) -->
             <div class="panel-slot">
                 <button id="btn-win" onclick="playerAction('win')" style="background-color: var(--accent-active); border: 2px solid #ffccd5; display: none;">胡牌</button>
             </div>
