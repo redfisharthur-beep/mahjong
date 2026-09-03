@@ -1,413 +1,255 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>象棋麻將爭霸</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #f7f4ef; --card-bg: #fffaf5; --card-border: #e6d7cc;
-            --text-main: #6b5b53; --text-light: #9e8a80; --button-bg: #d4a373;
-            --button-hover: #faedcd; --button-text: #584032; --accent-active: #e07a5f;
-            --morandi-ruby: rgba(195, 110, 130, 0.92); --morandi-yellow: rgba(244, 211, 94, 0.85);
-            --morandi-green: rgba(144, 190, 109, 0.85); --morandi-blue: rgba(144, 224, 239, 0.85);
-            --muted-red: #C36E82; 
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Zen Maru Gothic", "Microsoft JhengHei", sans-serif; color: var(--text-main); -webkit-tap-highlight-color: transparent; }
-        body { background-color: var(--bg-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; position: fixed; width: 100%; height: 100%; font-size: 18px; }
-        
-        #app { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; position: relative; }
-        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; background-color: var(--bg-color); padding: 15px; overflow-y: auto; }
-        .screen.active { display: flex; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>象棋麻將爭霸</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#090909;--panel:#111;--panel2:#191919;--gold:#d8ad58;--gold2:#ffe09a;
+      --red:#df3636;--red2:#ff6b55;--text:#f6ead0;--muted:#a99b83;--line:#4b3922;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;-webkit-tap-highlight-color:transparent}
+    html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--text)}
+    body{position:fixed}
+    button,input{font:inherit}
+    button{border:0;cursor:pointer}
+    #app{width:100%;height:100%;position:relative;background:radial-gradient(circle at 50% 18%,#26170d 0,#120d08 35%,#070707 72%)}
+    .screen{display:none;position:absolute;inset:0;width:100%;height:100%;overflow:auto}
+    .screen.active{display:flex}
 
-        /* 首頁背景圖設定：使用本地 lobby-bg.png 並加上遮罩讓文字清晰易讀 */
-        #lobby-screen { 
-            background: linear-gradient(rgba(110, 100, 90, 0.5), rgba(110, 100, 90, 0.5)), url('lobby-bg.png'); 
-            background-size: cover; 
-            background-position: center;
-            justify-content: center; 
-            padding-top: 0;
-        }
-        .lobby-content-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 450px; z-index: 2; }
-        input, button { padding: 14px 22px; font-size: 18px; border-radius: 16px; border: 2px solid var(--card-border); margin: 6px; max-width: 100%; outline: none; z-index: 2; font-weight: normal; }
-        #player-name-input { background: #ffffff; color: var(--text-main); text-align: center; width: 100%; max-width: 280px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); font-size: 22px; }
-        button { background-color: var(--button-bg); color: #fff; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(212, 163, 115, 0.3); }
-        button:hover:not(:disabled) { background-color: var(--accent-active); transform: translateY(-2px); }
-        button:disabled { background: #e0d5cb !important; color: #a89a90 !important; cursor: not-allowed; transform: none; box-shadow: none; opacity: 0.6; }
-        
-        .room-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; margin-top: 15px; }
-        .room-card { padding: 22px 12px; border-radius: 20px; text-align: center; cursor: pointer; color: #4a403a; box-shadow: 0 6px 15px rgba(0,0,0,0.05); font-size: 22px; border: 2px solid #fff; transition: all 0.2s; }
-        .room-card.room-ruby { background: var(--morandi-ruby); } .room-card.room-yellow { background: var(--morandi-yellow); }
-        .room-card.room-green { background: var(--morandi-green); } .room-card.room-blue { background: var(--morandi-blue); }
-        
-        #game-screen { background-color: var(--bg-color); }
-        .game-header { width: 100%; display: flex; justify-content: space-between; align-items: center; font-size: clamp(15px, 4vw, 18px); padding: 12px 18px; background: #fffaf5; border-bottom: 2px solid var(--card-border); border-radius: 0 0 16px 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 5px; }
-        
-        .players-bar { display: flex; gap: 8px; width: 100%; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
-        /* 玩家圖卡：顏色區別與動物圖示 */
-        .player-info-card { padding: 8px 14px; border-radius: 12px; font-size: clamp(14px, 3.5vw, 16px); border: 2px solid var(--card-border); white-space: nowrap; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .player-info-card:nth-child(1) { background-color: #e3f2fd; border-color: #90caf9; }
-        .player-info-card:nth-child(2) { background-color: #fce4ec; border-color: #f48fb1; }
-        .player-info-card:nth-child(3) { background-color: #e8f5e9; border-color: #a5d6a7; }
-        .player-info-card:nth-child(4) { background-color: #fffde7; border-color: #fff59d; }
+    /* 大廳 */
+    #lobby-screen{align-items:center;justify-content:center;padding:24px;background:linear-gradient(rgba(0,0,0,.46),rgba(0,0,0,.8)),url('lobby-bg.png') center/cover no-repeat}
+    .lobby-content-wrapper{width:min(92vw,460px);display:flex;flex-direction:column;gap:16px}
+    #player-name-input{width:100%;padding:16px 18px;border-radius:14px;border:1px solid #76552b;background:rgba(8,8,8,.88);color:#fff;text-align:center;font-size:22px;outline:none;box-shadow:0 0 22px rgba(216,173,88,.12)}
+    .room-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .room-card{min-height:94px;padding:18px 10px;border-radius:16px;border:1px solid #75572e;background:linear-gradient(145deg,#1c1812,#0d0d0d);color:var(--gold2);font-size:20px;font-weight:900;text-align:center;display:flex;align-items:center;justify-content:center;white-space:pre-line;box-shadow:inset 0 0 24px rgba(216,173,88,.06),0 8px 24px rgba(0,0,0,.35)}
+    .room-card:active{transform:scale(.97)}
 
-        .player-info-card.active-turn { border-color: var(--accent-active); box-shadow: 0 0 10px rgba(224, 122, 95, 0.5); }
-        .p-score { color: var(--muted-red); font-size: 1.2em; font-weight: bold; }
+    /* 戰鬥主畫面 */
+    #game-screen{flex-direction:column;overflow:hidden;padding:0 12px 10px}
+    .game-header{height:58px;width:100%;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;border-bottom:1px solid var(--line);flex:0 0 auto}
+    #room-name-display{display:none}
+    #round-display{font-size:clamp(19px,5vw,26px);font-weight:900;color:var(--gold2);letter-spacing:1px}
+    .deck-badge{display:flex;align-items:center;gap:6px;font-size:clamp(16px,4vw,21px);font-weight:800;color:#eee}
+    .deck-badge strong{font-size:1.1em;color:var(--gold2)}
+    .exit-btn{width:40px;height:40px;border-radius:12px;background:#171717;color:var(--muted);border:1px solid #3a2d1d;font-size:20px}
 
-        .center-pool { flex: 1; width: 100%; max-width: 700px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px; position: relative; }
-        .discarded-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; justify-items: center; width: 100%; max-width: 400px; }
-        
-        /* 棋子樣式：完全移除白色背景與白框，改用陰影透顯 */
-        .tile { width: clamp(55px, 15vw, 75px); height: clamp(55px, 15vw, 75px); border-radius: 50%; background-color: transparent; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; background-size: cover; background-position: center; background-repeat: no-repeat; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.25)); font-size: 26px; border: none; outline: none; transition: transform 0.2s ease; }
-        .tile:active { transform: scale(0.95); }
-        .tile.highlight { filter: drop-shadow(0 0 8px var(--accent-active)); transform: scale(1.15); z-index: 5; }
-        .tile.large { width: clamp(75px, 18vw, 95px); height: clamp(75px, 18vw, 95px); font-size: clamp(26px, 7vw, 38px); }
-        
-        .action-panel { display: flex; gap: 10px; margin: 8px 0; align-items: center; justify-content: center; width: 100%; flex-wrap: wrap; }
-        .action-panel button { padding: 12px 20px; font-size: clamp(16px, 4vw, 18px); border-radius: 14px; font-weight: normal; }
-        .timer-display { font-size: clamp(18px, 4.5vw, 22px); color: var(--accent-active); font-weight: bold; }
-        
-        .player-section { width: 100%; padding: 16px; display: flex; justify-content: center; min-height: 100px;}
-        .my-tiles { display: flex; gap: 12px; align-items: center; justify-content: center; }
-        
-        /* 胡牌公開展示區：改為 2 行 (上2棋 + 下3棋) */
-        #winner-display-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(247, 244, 239, 0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; border-radius: 20px;}
-        #winner-display-overlay.active { display: flex; }
-        .winning-rows-container { display: flex; flex-direction: column; gap: 12px; align-items: center; margin: 15px 0; }
-        .winning-row { display: flex; gap: 12px; justify-content: center; }
+    .players-bar{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 0;flex:0 0 auto}
+    .player-info-card{position:relative;min-width:0;padding:10px 8px;border-radius:14px;background:linear-gradient(180deg,#181818,#0b0b0b);border:1px solid #352a1c;text-align:center;box-shadow:0 5px 16px rgba(0,0,0,.3);transition:.2s}
+    .player-name{font-size:clamp(13px,3.8vw,18px);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#e9dfcb}
+    .p-score{font-size:clamp(19px,5.4vw,29px);line-height:1.15;font-weight:900;color:var(--gold2)}
+    .player-info-card.active-turn{border-color:var(--red);box-shadow:0 0 0 1px rgba(223,54,54,.45),0 0 24px rgba(223,54,54,.26);transform:translateY(-2px)}
+    .player-info-card.active-turn::after{content:'●';position:absolute;top:-8px;right:8px;color:var(--red2);font-size:14px;animation:pulse 1s infinite}
 
-        #ready-screen, #gameover-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(247, 244, 239, 0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 50; padding: 20px; text-align: center; }
-        #ready-screen.active, #gameover-screen.active { display: flex; }
-        
-        .ranking-table { width: 100%; max-width: 450px; border-collapse: collapse; margin: 15px 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .ranking-table th, .ranking-table td { padding: 10px 6px; border-bottom: 1px solid var(--card-border); text-align: center; font-size: 14px; }
-        .ranking-table th { background: #fdfaf6; color: var(--accent-active); }
-        
-        #message-modal { position: fixed; top: 20px; background-color: #fffaf5; color: var(--accent-active); border: 2px solid var(--card-border); padding: 14px 24px; border-radius: 16px; font-size: 18px; display: none; z-index: 100; left: 50%; transform: translateX(-50%); }
-    </style>
+    .center-pool{position:relative;flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0}
+    .pool-label{font-size:13px;letter-spacing:4px;color:#76674f;margin-bottom:5px}
+    .discarded-tiles{width:min(100%,620px);display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:7px;min-height:112px;padding:8px}
+
+    .tile{width:clamp(64px,18vw,92px);height:clamp(64px,18vw,92px);border-radius:50%;background:transparent center/contain no-repeat;display:flex;align-items:center;justify-content:center;color:#fff;font-size:34px;font-weight:900;filter:drop-shadow(0 6px 7px rgba(0,0,0,.62));user-select:none;transition:transform .16s ease,filter .16s ease;animation:tileIn .24s ease both}
+    .discarded-tiles .tile{width:clamp(42px,11vw,58px);height:clamp(42px,11vw,58px);font-size:20px;opacity:.9}
+    .tile:active{transform:scale(.9)}
+    .tile.highlight{z-index:5;transform:scale(1.16);filter:drop-shadow(0 0 8px #ff462e) drop-shadow(0 0 18px rgba(255,70,46,.72));animation:dangerPulse .72s infinite alternate}
+    .tile.large{width:clamp(82px,22vw,112px);height:clamp(82px,22vw,112px)}
+
+    .turn-strip{width:min(100%,620px);height:52px;margin:2px auto 5px;display:flex;align-items:center;justify-content:center;gap:12px;border-top:1px solid #342616;border-bottom:1px solid #342616;flex:0 0 auto}
+    #turn-status-text{font-size:clamp(16px,4.4vw,22px);font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .timer-display{min-width:52px;text-align:center;font-size:clamp(24px,7vw,36px);font-weight:900;color:var(--red2);text-shadow:0 0 12px rgba(223,54,54,.4)}
+
+    .action-panel{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;min-height:64px;flex:0 0 auto}
+    .action-panel button{min-width:104px;padding:13px 18px;border-radius:14px;background:linear-gradient(180deg,#c89a48,#8d6025);color:#120d07;font-size:clamp(18px,4.7vw,23px);font-weight:900;box-shadow:0 5px 14px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+    .action-panel button:disabled{opacity:.28;filter:grayscale(.7)}
+    #btn-win{background:linear-gradient(180deg,#ff5748,#a70e15);color:#fff;animation:winPulse .62s infinite alternate}
+
+    .player-section{width:100%;min-height:96px;display:flex;align-items:center;justify-content:center;padding:5px 0 8px;flex:0 0 auto}
+    .my-tiles{width:100%;display:flex;align-items:center;justify-content:center;gap:clamp(2px,1.8vw,10px)}
+    .my-tiles .tile{cursor:pointer}
+    .my-tiles .tile:hover{transform:translateY(-6px) scale(1.04)}
+
+    #message-modal{display:none;position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:100;padding:12px 18px;border-radius:999px;background:#0d0d0d;color:#ffe0a0;border:1px solid #76552b;font-weight:800;box-shadow:0 10px 25px rgba(0,0,0,.45)}
+
+    #ready-screen,#gameover-screen{display:none;position:fixed;inset:0;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:rgba(5,5,5,.96);text-align:center}
+    #ready-screen.active,#gameover-screen.active{display:flex}
+    #ready-screen h2,#gameover-screen h2{font-size:34px;color:var(--gold2);margin-bottom:10px}
+    #ready-screen p{color:var(--muted);font-size:17px;margin-bottom:18px}
+    #ready-screen button,#gameover-screen button,#btn-next-round{padding:14px 28px;border-radius:14px;background:linear-gradient(180deg,#d5ad5d,#8c6028);font-size:19px;font-weight:900;color:#140e07;margin:6px}
+    .ranking-table{width:min(100%,520px);border-collapse:collapse;margin:14px 0;background:#111;border:1px solid #46351e}
+    .ranking-table th,.ranking-table td{padding:8px 5px;border-bottom:1px solid #292016;font-size:13px;color:#ddd}
+    .ranking-table th{color:var(--gold2)}
+
+    #winner-display-overlay{display:none;position:absolute;inset:0;z-index:30;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#38110c 0,#120907 42%,rgba(0,0,0,.97) 76%);text-align:center;overflow:hidden}
+    #winner-display-overlay.active{display:flex;animation:overlayIn .25s ease both}
+    #winner-display-overlay.active::before,#winner-display-overlay.active::after{content:'';position:absolute;width:160%;height:3px;background:linear-gradient(90deg,transparent,#ff5a3d,#ffd27a,transparent);box-shadow:0 0 28px #ff371f;animation:slash .55s ease both}
+    #winner-display-overlay.active::after{transform:rotate(-18deg);animation-delay:.08s}
+    #winner-title{font-size:clamp(38px,11vw,68px)!important;color:#ffe3a3!important;font-weight:900;text-shadow:0 0 8px #ff482c,0 0 26px rgba(255,72,44,.8);animation:titleBurst .5s cubic-bezier(.2,1.4,.3,1) both}
+    #winner-desc{font-size:clamp(18px,5vw,26px)!important;color:#fff!important;font-weight:800;margin-top:8px}
+    .winning-rows-container{display:flex;flex-direction:column;gap:8px;align-items:center;margin:20px 0}
+    .winning-row{display:flex;gap:7px;justify-content:center}
+    .winning-row .tile{animation:winTile .42s cubic-bezier(.15,1.35,.35,1) both}
+
+    @keyframes tileIn{from{opacity:0;transform:scale(.72) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    @keyframes pulse{50%{opacity:.35;transform:scale(.8)}}
+    @keyframes dangerPulse{to{transform:scale(1.24);filter:drop-shadow(0 0 12px #ff2d1f) drop-shadow(0 0 24px rgba(255,45,31,.9))}}
+    @keyframes winPulse{to{transform:scale(1.07);box-shadow:0 0 24px rgba(255,51,36,.65)}}
+    @keyframes overlayIn{from{opacity:0}to{opacity:1}}
+    @keyframes titleBurst{from{opacity:0;transform:scale(2.2)}to{opacity:1;transform:scale(1)}}
+    @keyframes winTile{from{opacity:0;transform:translateY(50px) rotate(12deg) scale(.7)}to{opacity:1;transform:none}}
+    @keyframes slash{from{opacity:0;transform:translateX(-80%) rotate(18deg)}to{opacity:1;transform:translateX(0) rotate(18deg)}}
+
+    @media(max-width:520px){
+      #game-screen{padding:0 8px 6px}
+      .players-bar{grid-template-columns:repeat(2,1fr);gap:6px;padding:7px 0}
+      .player-info-card{padding:6px 7px;display:grid;grid-template-columns:1fr auto;align-items:center;text-align:left}
+      .p-score{font-size:20px}
+      .center-pool{padding:1px 0}
+      .discarded-tiles{min-height:84px;gap:3px;padding:4px}
+      .action-panel{gap:7px;min-height:56px}.action-panel button{min-width:88px;padding:11px 13px}
+      .player-section{min-height:82px;padding-bottom:2px}
+      .turn-strip{height:44px}
+    }
+    @media(max-height:720px){.tile{width:62px;height:62px}.players-bar{padding:4px 0}.center-pool{min-height:80px}.discarded-tiles{min-height:72px}.player-section{min-height:68px}}
+  </style>
 </head>
 <body>
-    <!-- 胡牌音效元素 -->
-    <audio id="win-sound" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" preload="auto"></audio>
-
+<audio id="win-sound" src="https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3" preload="auto"></audio>
 <div id="app">
-    <div id="message-modal">提示訊息</div>
-    
-    <div id="lobby-screen" class="screen active">
-        <div class="lobby-content-wrapper">
-            <input type="text" id="player-name-input" placeholder="請輸入暱稱">
-            <div class="room-list" id="room-list-container"></div>
-        </div>
+  <div id="message-modal">提示訊息</div>
+
+  <div id="lobby-screen" class="screen active">
+    <div class="lobby-content-wrapper">
+      <input type="text" id="player-name-input" placeholder="輸入暱稱">
+      <div class="room-list" id="room-list-container"></div>
+    </div>
+  </div>
+
+  <div id="game-screen" class="screen">
+    <div id="ready-screen">
+      <h2>等待開戰</h2>
+      <p>2～4 人到齊即可開始</p>
+      <button id="btn-ready" onclick="clickReady()">準備</button>
+      <button onclick="leaveRoom()">退出</button>
     </div>
 
-    <div id="game-screen" class="screen">
-        <div id="ready-screen">
-            <h2 style="color: var(--accent-active); font-size: 28px;">休息小棧</h2>
-            <p style="margin: 15px 0; color: var(--text-light);">2~4 人皆可開始，等待眾人就位！</p>
-            <button id="btn-ready" onclick="clickReady()" style="padding: 16px 40px; font-size: 20px;">準備出發</button>
-            <button onclick="leaveRoom()" style="background: #e6d7cc; color: var(--text-main); margin-top: 15px;">返回大廳</button>
-        </div>
-
-        <div id="gameover-screen">
-            <h2 style="color: var(--accent-active); font-size: 26px;">10局圓滿落幕 - 英雄榜</h2>
-            <table class="ranking-table" id="ranking-table"></table>
-            <button onclick="leaveRoom()">返回大廳</button>
-        </div>
-
-        <div class="game-header">
-            <span id="room-name-display" style="color: var(--accent-active);">房間</span>
-            <span id="round-display">第 1 / 10 局</span>
-            <span id="turn-status-text" style="color: var(--accent-active);">等待中</span>
-            <button style="padding: 6px 14px; font-size: 15px; background: #e6d7cc; color: var(--text-main);" onclick="leaveRoom()">退出</button>
-        </div>
-
-        <div class="players-bar" id="players-bar-container"></div>
-
-        <div class="center-pool">
-            <div id="winner-display-overlay">
-                <h2 id="winner-title" style="color: var(--accent-active); font-size: 28px; margin-bottom: 5px;"></h2>
-                <p id="winner-desc" style="font-size: 18px; color: var(--text-main); margin-bottom: 10px;"></p>
-                
-                <!-- 胡牌展示改為 2 行 (上2棋 + 下3棋) -->
-                <div class="winning-rows-container">
-                    <div id="winning-row-top" class="winning-row"></div>
-                    <div id="winning-row-bottom" class="winning-row"></div>
-                </div>
-
-                <div style="margin-top:15px; font-size: 16px; color: var(--text-light);">倒數 <span id="next-timer">5</span>s 進入下一把</div>
-                <button id="btn-next-round" onclick="clickNextRound()" style="margin-top: 10px;">下一把</button>
-            </div>
-            <div class="discarded-tiles" id="discarded-pool"></div>
-        </div>
-
-        <div class="action-panel">
-            <button id="btn-draw" onclick="playerAction('draw')" disabled>摸牌</button>
-            <button id="btn-eat" onclick="playerAction('eat')" disabled>吃牌</button>
-            <button id="btn-win" onclick="playerAction('win')" style="background-color: var(--accent-active); border: 2px solid #ffccd5; display: none;">胡牌！</button>
-            <div class="timer-display">剩餘：<br><span id="timer-text" style="font-size: 28px;">8</span></div>
-        </div>
-
-        <div class="player-section">
-            <div class="my-tiles" id="my-hand-tiles"></div>
-        </div>
+    <div id="gameover-screen">
+      <h2>最終排名</h2>
+      <table class="ranking-table" id="ranking-table"></table>
+      <button onclick="leaveRoom()">返回大廳</button>
     </div>
+
+    <div class="game-header">
+      <span id="room-name-display">房間</span>
+      <span id="round-display">第 1 / 10 局</span>
+      <span class="deck-badge">牌庫 <strong id="deck-count">32</strong></span>
+      <button class="exit-btn" onclick="leaveRoom()">×</button>
+    </div>
+
+    <div class="players-bar" id="players-bar-container"></div>
+
+    <div class="center-pool">
+      <div id="winner-display-overlay">
+        <h2 id="winner-title"></h2>
+        <p id="winner-desc"></p>
+        <div class="winning-rows-container">
+          <div id="winning-row-top" class="winning-row"></div>
+          <div id="winning-row-bottom" class="winning-row"></div>
+        </div>
+        <div style="color:#9f9078">下一局 <span id="next-timer">5</span>s</div>
+        <button id="btn-next-round" onclick="clickNextRound()">下一局</button>
+      </div>
+      <div class="pool-label">棄牌區</div>
+      <div class="discarded-tiles" id="discarded-pool"></div>
+    </div>
+
+    <div class="turn-strip">
+      <div id="turn-status-text">等待中</div>
+      <div class="timer-display"><span id="timer-text">8</span></div>
+    </div>
+
+    <div class="action-panel">
+      <button id="btn-draw" onclick="playerAction('draw')" disabled>摸牌</button>
+      <button id="btn-eat" onclick="playerAction('eat')" disabled>吃牌</button>
+      <button id="btn-win" onclick="playerAction('win')" style="display:none">胡牌</button>
+    </div>
+
+    <div class="player-section"><div class="my-tiles" id="my-hand-tiles"></div></div>
+  </div>
 </div>
 
 <script>
-    const socket = io();
-    let gs = { id: '', pId: '', p: [], hand: [], pool: [], tIdx: 0, phase: '', turnCard: false };
+const socket=io();
+let gs={id:'',pId:'',p:[],hand:[],pool:[],tIdx:0,phase:'',turnCard:false,deckCount:32};
 
-    // 玩家專屬可愛小動物陣列
-    const animalAvatars = ['🐶', '🐱', '🐰', '🦊', '🐼', '🐨'];
+function getTileImg(name){
+  const m={'帥':'red_shuai.png','仕':'red_shi.png','相':'red_xiang.png','俥':'red_che.png','傌':'red_ma.png','炮':'red_pao.png','兵':'red_bing.png','將':'black_jiang.png','士':'black_shi.png','象':'black_xiang.png','車':'black_che.png','馬':'black_ma.png','包':'black_pao.png','卒':'black_zu.png'};
+  return m[name]||'';
+}
+function showMsg(text){const m=document.getElementById('message-modal');m.innerText=text;m.style.display='block';setTimeout(()=>m.style.display='none',1800)}
 
-    function getTileImg(name) {
-        const m = {
-            '帥':'red_shuai.png','仕':'red_shi.png','相':'red_xiang.png','俥':'red_che.png','傌':'red_ma.png','炮':'red_pao.png','兵':'red_bing.png',
-            '將':'black_jiang.png','士':'black_shi.png','象':'black_xiang.png','車':'black_che.png','馬':'black_ma.png','包':'black_pao.png','卒':'black_zu.png'
-        };
-        return m[name] || '';
-    }
+// 前端胡牌驗證：帥＋將可視為「特殊對子」。凡以這組特殊對子成牌，後端基礎分固定至少 6 分。
+function checkHuClient(hand,extraCard=null){
+  const test=[...hand];if(extraCard)test.push(extraCard);if(test.length!==5)return false;
+  const counts={};test.forEach(t=>counts[t]=(counts[t]||0)+1);
+  const hasSubset=sub=>{const temp={...counts};for(const t of sub){if(!temp[t])return false;temp[t]--}return true};
+  const remainingAfter=sub=>{const temp={...counts};for(const t of sub)temp[t]--;const rem=[];for(const t in temp)for(let i=0;i<temp[t];i++)rem.push(t);return rem};
+  const isPair=rem=>rem.length===2&&((rem[0]===rem[1])||(rem.includes('帥')&&rem.includes('將')));
+  if(counts['兵']===5||counts['卒']===5)return true;
+  if(hasSubset(['帥','將','兵','兵','兵'])||hasSubset(['帥','將','卒','卒','卒']))return true;
+  if((counts['兵']===2&&counts['卒']===3)||(counts['兵']===3&&counts['卒']===2))return true;
+  const groups=[['帥','仕','相'],['將','士','象'],['俥','傌','炮'],['車','馬','包']];
+  if(groups.some(g=>hasSubset(g)&&isPair(remainingAfter(g))))return true;
+  if(counts['兵']===3||counts['卒']===3){const p=counts['兵']===3?'兵':'卒';if(isPair(remainingAfter([p,p,p])))return true}
+  return false;
+}
 
-    function showMsg(text) {
-        const m = document.getElementById('message-modal');
-        m.innerText = text; m.style.display = 'block';
-        setTimeout(() => m.style.display = 'none', 2000);
-    }
+socket.on('room_list',rooms=>{
+  const c=document.getElementById('room-list-container');c.innerHTML='';
+  Object.values(rooms).forEach(r=>{const d=document.createElement('div');d.className='room-card';d.innerText=`${r.name}\n${r.players.length}/4`;d.onclick=()=>{const name=document.getElementById('player-name-input').value.trim();if(!name)return showMsg('請輸入暱稱');socket.emit('join_room',{roomId:r.id,playerName:name});document.getElementById('room-name-display').innerText=r.name;document.getElementById('lobby-screen').classList.remove('active');document.getElementById('game-screen').classList.add('active')};c.appendChild(d)})
+});
+function leaveRoom(){window.location.reload()}
+function clickReady(){socket.emit('player_ready');const b=document.getElementById('btn-ready');b.innerText='已準備';b.disabled=true}
+function clickNextRound(){socket.emit('next_round_ready');document.getElementById('btn-next-round').disabled=true}
+function playerAction(t){socket.emit('player_action',{roomId:gs.id,actionType:t})}
+function selectTile(t){socket.emit('player_action',{roomId:gs.id,actionType:'discard',payload:{tile:t}})}
 
-    // 前端同步計算胡牌輔助驗證
-    function checkHuClient(hand, extraCard = null) {
-        let testHand = [...hand];
-        if (extraCard) testHand.push(extraCard);
-        if (testHand.length !== 5) return false;
-        
-        let counts = {};
-        testHand.forEach(t => counts[t] = (counts[t] || 0) + 1);
+socket.on('timer_update',sec=>{if(gs.phase==='PLAYING')document.getElementById('timer-text').innerText=sec;if(gs.phase==='ROUND_OVER')document.getElementById('next-timer').innerText=sec});
+socket.on('action_feedback',d=>showMsg(d.message));
 
-        const hasSubset = (subset) => {
-            let temp = { ...counts };
-            for (let t of subset) { if (!temp[t] || temp[t] <= 0) return false; temp[t]--; }
-            return true;
-        };
-        const checkPairInRemaining = (subset) => {
-            let temp = { ...counts };
-            for (let t of subset) temp[t]--;
-            let rem = [];
-            for (let t in temp) { for (let i = 0; i < temp[t]; i++) rem.push(t); }
-            return rem.length === 2 && rem[0] === rem[1];
-        };
+socket.on('room_state_update',st=>{
+  gs.id=st.id;gs.pId=socket.id;gs.p=st.players;gs.phase=st.phase;gs.tIdx=st.currentTurnIndex;gs.turnCard=st.hasTakenCardThisTurn;gs.hand=st.myHands[socket.id]||[];gs.pool=st.discardPool||[];gs.deckCount=st.deckCount??0;
+  document.getElementById('deck-count').innerText=gs.deckCount;
+  const rs=document.getElementById('ready-screen'),overlay=document.getElementById('winner-display-overlay');rs.classList.remove('active');overlay.classList.remove('active');
+  document.getElementById('round-display').innerText=`第 ${st.currentRound} / ${st.maxRounds} 局`;
+  if(st.phase==='WAITING'){
+    rs.classList.add('active');const me=gs.p.find(p=>p.id===gs.pId);if(me&&!me.isReady){const b=document.getElementById('btn-ready');b.innerText='準備';b.disabled=false}
+  }else if(st.phase==='ROUND_OVER'){
+    overlay.classList.add('active');document.getElementById('btn-next-round').disabled=false;
+    const a=document.getElementById('win-sound');if(a){a.currentTime=0;a.play().catch(()=>{})}
+    if(st.winningInfo){document.getElementById('winner-title').innerText=st.winningInfo.title||'流局';document.getElementById('winner-desc').innerText=st.winningInfo.desc||'';const top=document.getElementById('winning-row-top'),bottom=document.getElementById('winning-row-bottom');top.innerHTML='';bottom.innerHTML='';(st.winningInfo.winningHand||[]).forEach((t,i)=>{const d=document.createElement('div');d.className='tile large';const img=getTileImg(t);if(img)d.style.backgroundImage=`url('${img}')`;else d.innerText=t;(i<2?top:bottom).appendChild(d)})}
+  }
+  updateUI(st);
+});
 
-        if (counts['兵'] === 5 || counts['卒'] === 5) return true;
-        if (hasSubset(['帥', '將', '兵', '兵', '兵']) || hasSubset(['帥', '將', '卒', '卒', '卒'])) return true;
-        if ((counts['兵'] === 2 && counts['卒'] === 3) || (counts['兵'] === 3 && counts['卒'] === 2)) return true;
-        
-        const validPairs = ['仕', '相', '俥', '傌', '炮', '士', '象', '車', '馬', '包'];
-        if (counts['兵'] === 3 || counts['卒'] === 3) {
-            let pawnTile = counts['兵'] === 3 ? '兵' : '卒';
-            let temp = { ...counts }; temp[pawnTile] -= 3;
-            let rem = [];
-            for (let t in temp) { for (let i = 0; i < temp[t]; i++) rem.push(t); }
-            if (rem.length === 2 && rem[0] === rem[1]) return true;
-        }
-        if (hasSubset(['帥', '仕', '相']) && checkPairInRemaining(['帥', '仕', '相'])) return true;
-        if (hasSubset(['將', '士', '象']) && checkPairInRemaining(['將', '士', '象'])) return true;
-        if (hasSubset(['俥', '傌', '炮']) && checkPairInRemaining(['俥', '傌', '炮'])) return true;
-        if (hasSubset(['車', '馬', '包']) && checkPairInRemaining(['車', '馬', '包'])) return true;
+socket.on('game_over',data=>{
+  document.getElementById('ready-screen').classList.remove('active');document.getElementById('winner-display-overlay').classList.remove('active');document.getElementById('gameover-screen').classList.add('active');
+  const tb=document.getElementById('ranking-table');tb.innerHTML='<tr><th>#</th><th>玩家</th><th>分數</th><th>胡</th><th>自摸</th><th>放槍</th></tr>';
+  data.rankings.forEach((p,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${i+1}</td><td>${p.name}</td><td><b>${p.score}</b></td><td>${p.stats.hu}</td><td>${p.stats.zimo}</td><td>${p.stats.fangQiang}</td>`;tb.appendChild(tr)})
+});
 
-        return false;
-    }
-
-    socket.on('room_list', rooms => {
-        const c = document.getElementById('room-list-container'); c.innerHTML = '';
-        Object.values(rooms).forEach(r => {
-            const d = document.createElement('div');
-            d.className = `room-card ${r.colorClass}`;
-            d.innerText = `${r.name}\n(${r.players.length}/4人)`;
-            d.onclick = () => {
-                const name = document.getElementById('player-name-input').value.trim();
-                if(!name) return showMsg('請輸入暱稱');
-                socket.emit('join_room', { roomId: r.id, playerName: name });
-                document.getElementById('room-name-display').innerText = r.name;
-                document.getElementById('lobby-screen').classList.remove('active');
-                document.getElementById('game-screen').classList.add('active');
-            };
-            c.appendChild(d);
-        });
-    });
-
-    function leaveRoom() { window.location.reload(); }
-    function clickReady() { socket.emit('player_ready'); document.getElementById('btn-ready').innerText = '已就緒...'; document.getElementById('btn-ready').disabled = true; }
-    function clickNextRound() { socket.emit('next_round_ready'); document.getElementById('btn-next-round').disabled = true; }
-    function playerAction(t) { socket.emit('player_action', { roomId: gs.id, actionType: t }); }
-    function selectTile(t) { socket.emit('player_action', { roomId: gs.id, actionType: 'discard', payload: { tile: t } }); }
-
-    socket.on('timer_update', sec => {
-        if(gs.phase === 'PLAYING') document.getElementById('timer-text').innerText = sec;
-        if(gs.phase === 'ROUND_OVER') document.getElementById('next-timer').innerText = sec;
-    });
-
-    socket.on('action_feedback', d => showMsg(d.message));
-
-    socket.on('room_state_update', st => {
-        gs.id = st.id; gs.pId = socket.id; gs.p = st.players; gs.phase = st.phase; 
-        gs.tIdx = st.currentTurnIndex; gs.turnCard = st.hasTakenCardThisTurn;
-        gs.hand = st.myHands[socket.id] || []; gs.pool = st.discardPool || [];
-
-        const rs = document.getElementById('ready-screen'), overlay = document.getElementById('winner-display-overlay');
-        rs.classList.remove('active'); overlay.classList.remove('active');
-        document.getElementById('round-display').innerText = `第 ${st.currentRound} / ${st.maxRounds} 局`;
-
-        if (st.phase === 'WAITING') {
-            rs.classList.add('active');
-            let me = gs.p.find(p => p.id === gs.pId);
-            if(me && !me.isReady) {
-                let b = document.getElementById('btn-ready');
-                b.innerText = '準備出發'; b.disabled = false;
-            }
-        } else if (st.phase === 'ROUND_OVER') {
-            overlay.classList.add('active');
-            document.getElementById('btn-next-round').disabled = false;
-            
-            // 播放胡牌音效
-            const winAudio = document.getElementById('win-sound');
-            if (winAudio) {
-                winAudio.currentTime = 0;
-                winAudio.play().catch(e => console.log("音效播放需要網頁互動授權", e));
-            }
-
-            if(st.winningInfo) {
-                document.getElementById('winner-title').innerText = st.winningInfo.title || '流局';
-                document.getElementById('winner-desc').innerText = st.winningInfo.desc || '';
-                
-                // 將胡牌手牌分為 2 行展示 (上2棋 + 下3棋)
-                const rowTop = document.getElementById('winning-row-top');
-                const rowBottom = document.getElementById('winning-row-bottom');
-                rowTop.innerHTML = '';
-                rowBottom.innerHTML = '';
-
-                if(st.winningInfo.winningHand) {
-                    st.winningInfo.winningHand.forEach((t, index) => {
-                        let d = document.createElement('div'); d.className = 'tile large';
-                        let img = getTileImg(t);
-                        if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
-                        
-                        if (index < 2) {
-                            rowTop.appendChild(d);
-                        } else {
-                            rowBottom.appendChild(d);
-                        }
-                    });
-                }
-            }
-        }
-        updateUI(st);
-    });
-
-    socket.on('game_over', data => {
-        document.getElementById('ready-screen').classList.remove('active');
-        document.getElementById('winner-display-overlay').classList.remove('active');
-        document.getElementById('gameover-screen').classList.add('active');
-        
-        let tb = document.getElementById('ranking-table');
-        tb.innerHTML = '<tr><th>名次</th><th>玩家</th><th>總分</th><th>胡</th><th>槍</th><th>自摸</th><th>流局</th><th>勝率</th></tr>';
-        const medals = ['🥇', '🥈', '🥉', '第四名'];
-        data.rankings.forEach((p, i) => {
-            let tr = document.createElement('tr');
-            // 勝率計算：(胡的總次數 / 10個場次) * 100%
-            let winRate = Math.round((p.stats.hu / 10) * 100);
-            tr.innerHTML = `<td>${medals[i] || i+1}</td><td>${p.name}</td><td><b>${p.score}</b></td>
-                            <td>${p.stats.hu}</td><td>${p.stats.fangQiang}</td><td>${p.stats.zimo}</td>
-                            <td>${p.stats.liuJu}</td><td>${winRate}%</td>`;
-            tb.appendChild(tr);
-        });
-    });
-
-    function updateUI(st) {
-        const bar = document.getElementById('players-bar-container'); bar.innerHTML = '';
-        let isMyTurn = (st.players[st.currentTurnIndex]?.id === gs.pId);
-
-        // 渲染玩家列表 (附加動物圖示與不同顏色識別)
-        st.players.forEach((p, index) => {
-            let animal = animalAvatars[index % animalAvatars.length];
-            let c = document.createElement('div');
-            c.className = `player-info-card ${(st.players[st.currentTurnIndex]?.id === p.id && st.phase !== 'ROUND_OVER') ? 'active-turn' : ''}`;
-            c.innerHTML = `<div>${animal} ${p.name}</div><div class="p-score">${p.score}</div>`;
-            bar.appendChild(c);
-        });
-
-        let statusText = document.getElementById('turn-status-text');
-        let dBtn = document.getElementById('btn-draw'), eBtn = document.getElementById('btn-eat'), wBtn = document.getElementById('btn-win');
-        
-        dBtn.disabled = true; 
-        eBtn.disabled = true; 
-        wBtn.style.display = 'none';
-
-        const poolHasCards = gs.pool.length > 0;
-
-        if (st.phase === 'PLAYING') {
-            if (isMyTurn) {
-                if (!st.hasTakenCardThisTurn) {
-                    dBtn.disabled = false; // 允許摸牌
-                    
-                    if (poolHasCards) {
-                        eBtn.disabled = false; 
-                        statusText.innerText = '您的回合：請選擇【摸牌】或【吃牌】';
-                    } else {
-                        eBtn.disabled = true; 
-                        statusText.innerText = '您的回合：第一手請【摸牌】';
-                    }
-                    
-                    // 檢查是否可抓別人放槍胡牌
-                    if (poolHasCards && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) {
-                        wBtn.style.display = 'block';
-                    }
-                } else {
-                    statusText.innerText = '您的回合：請點擊手牌打出一張牌';
-                    // 檢查自摸胡牌條件
-                    if (gs.hand.length === 5 && checkHuClient(gs.hand)) {
-                        wBtn.style.display = 'block'; 
-                    }
-                }
-            } else {
-                statusText.innerText = `等待 ${st.players[st.currentTurnIndex]?.name || ''} 操作中...`;
-                // 非自己回合時，若棄牌堆有牌，可進行放槍胡牌
-                if (!st.hasTakenCardThisTurn && poolHasCards && checkHuClient(gs.hand, gs.pool[gs.pool.length - 1])) {
-                    wBtn.style.display = 'block'; 
-                }
-            }
-        }
-
-        // 渲染手牌
-        const hc = document.getElementById('my-hand-tiles'); hc.innerHTML = '';
-        gs.hand.forEach(t => {
-            let d = document.createElement('div'); d.className = 'tile';
-            let img = getTileImg(t);
-            if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
-            
-            if(isMyTurn && st.hasTakenCardThisTurn && gs.hand.length > 4) {
-                d.onclick = () => selectTile(t);
-                d.style.cursor = 'pointer';
-            } else {
-                d.style.cursor = 'default';
-            }
-            hc.appendChild(d);
-        });
-
-        // 渲染棄牌堆
-        const pc = document.getElementById('discarded-pool'); pc.innerHTML = '';
-        gs.pool.forEach((t, i) => {
-            let d = document.createElement('div'); d.className = 'tile';
-            d.style.width = 'clamp(40px, 10vw, 55px)'; d.style.height = 'clamp(40px, 10vw, 55px)'; d.style.fontSize = '20px';
-            let img = getTileImg(t);
-            if(img) d.style.backgroundImage = `url('${img}')`; else d.innerText = t;
-            
-            if (i === gs.pool.length - 1 && st.phase === 'PLAYING' && !st.hasTakenCardThisTurn) {
-                d.classList.add('highlight');
-            }
-            pc.appendChild(d);
-        });
-    }
+function updateUI(st){
+  const bar=document.getElementById('players-bar-container');bar.innerHTML='';const isMyTurn=st.players[st.currentTurnIndex]?.id===gs.pId;
+  st.players.forEach(p=>{const c=document.createElement('div');c.className=`player-info-card ${(st.players[st.currentTurnIndex]?.id===p.id&&st.phase!=='ROUND_OVER')?'active-turn':''}`;c.innerHTML=`<div class="player-name">${p.name}</div><div class="p-score">${p.score}<span style="font-size:.52em;color:#8f806a"> 分</span></div>`;bar.appendChild(c)});
+  const status=document.getElementById('turn-status-text'),dBtn=document.getElementById('btn-draw'),eBtn=document.getElementById('btn-eat'),wBtn=document.getElementById('btn-win');dBtn.disabled=true;eBtn.disabled=true;wBtn.style.display='none';const poolHas=gs.pool.length>0;
+  if(st.phase==='PLAYING'){
+    if(isMyTurn){
+      if(!st.hasTakenCardThisTurn){dBtn.disabled=false;eBtn.disabled=!poolHas;status.innerText=poolHas?'你的回合':'先摸牌';if(poolHas&&checkHuClient(gs.hand,gs.pool[gs.pool.length-1]))wBtn.style.display='block'}
+      else{status.innerText='打出一張';if(gs.hand.length===5&&checkHuClient(gs.hand))wBtn.style.display='block'}
+    }else{status.innerText=`${st.players[st.currentTurnIndex]?.name||''} 回合`;if(!st.hasTakenCardThisTurn&&poolHas&&checkHuClient(gs.hand,gs.pool[gs.pool.length-1]))wBtn.style.display='block'}
+  }
+  const hc=document.getElementById('my-hand-tiles');hc.innerHTML='';gs.hand.forEach((t,i)=>{const d=document.createElement('div');d.className='tile';d.style.animationDelay=`${i*35}ms`;const img=getTileImg(t);if(img)d.style.backgroundImage=`url('${img}')`;else d.innerText=t;if(isMyTurn&&st.hasTakenCardThisTurn&&gs.hand.length>4)d.onclick=()=>selectTile(t);hc.appendChild(d)});
+  const pc=document.getElementById('discarded-pool');pc.innerHTML='';gs.pool.forEach((t,i)=>{const d=document.createElement('div');d.className='tile';const img=getTileImg(t);if(img)d.style.backgroundImage=`url('${img}')`;else d.innerText=t;if(i===gs.pool.length-1&&st.phase==='PLAYING'&&!st.hasTakenCardThisTurn)d.classList.add('highlight');pc.appendChild(d)});
+}
 </script>
 </body>
 </html>
